@@ -2,7 +2,7 @@
 
 **Title:** (TBD — up to 300 characters)
 
-**Character count (excl. spaces):** 1946 / 2000
+**Character count (excl. spaces):** 1945 / 2000
 
 ---
 
@@ -10,9 +10,9 @@ MiDAS (Milun-fault Drilling and All-inclusive Sensing) is an on-fault observator
 
 To support continuous seismic surveillance for CCS and similar sites, we built an automated MiDAS pipeline that runs daily and issues a report with detected events, wave-direction classifications, and depth-resolved RMS profiles. It computes STA/LTA RMS energy on borehole channels (1-20 Hz) to detect events, then applies f-k beamforming to classify each by propagation direction (upgoing/downgoing/no moveout signal). A complementary long-period (0.1-1 Hz) monitor targets specific depth zones (damage/fault zone) to capture teleseismic surface waves invisible to the 1-20 Hz detector. Events are cross-validated against the CWA catalog.
 
-On 8 July 2026, MiDAS recorded a foreshock-mainshock-aftershock sequence: ~12 upgoing foreshocks over 4 hours preceded a local M4.3 mainshock (RMS ~150x background), followed by >50 aftershocks decaying over 7 hours. Separately, Typhoon Bavi's close approach to NE Taiwan (9-11 July 2026) produced a multi-day, ~two-fold rise in background RMS, possibly reflecting storm-generated microseismic noise (not yet verified). The low-frequency zone monitor also detected teleseismic surface waves from regional quakes (e.g., M4.9, Yunnan, China, ~2000 km) absent from the 1-20 Hz detector, whereas comparable, closer events (<500 km) produced energy in both bands -- a preliminary pattern suggesting frequency content may help discriminate source distance.
+A local M4.3 mainshock's strain rate recovered to background within ~2 minutes; MiDAS also detected background RMS elevation during Typhoon Bavi's close approach. Teleseismic surface waves (e.g., M4.9, Yunnan, China, ~2000 km) appeared only in the 0.1-1 Hz band, absent from the 1-20 Hz detector, whereas closer events excited both bands -- a preliminary distance-discrimination pattern. Across 130 automatically detected local events, recovery time scales roughly proportionally with peak strain rate above ~1e-8 s⁻¹, and the largest cataloged event (M5.6) took ~4.7 minutes to recover -- far exceeding its ~1 s source rupture duration, suggesting near-fault relaxation rather than the source process itself.
 
-Together these preliminary observations suggest MiDAS could serve as a local microseismic network, a regional/teleseismic observatory, and an environmental (storm) monitor, pending further verification of the frequency-based pattern and storm attribution. If confirmed, this could offer a low-cost template for separating induced, natural, and environmental signals at future CCS and geohazard-monitoring sites.
+Together these preliminary observations suggest MiDAS could serve as a local microseismic network, a regional/teleseismic observatory, and an environmental (storm) monitor, pending further verification of the frequency-based pattern, storm attribution, and the relaxation-process interpretation. If confirmed, this could offer a low-cost template for separating induced, natural, and environmental signals at future CCS and geohazard-monitoring sites.
 
 ---
 
