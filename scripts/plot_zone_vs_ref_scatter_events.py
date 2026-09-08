@@ -86,7 +86,7 @@ def scatter_with_events(bg, ev, ycol, ylabel, title, out_png, log_y=False, xlim_
     ax.grid(lw=0.3, alpha=0.5)
 
     fig.subplots_adjust(right=0.62)
-    y0 = 0.90
+    y0 = 0.80
     for _, r in ev.iterrows():
         color = EVENT_COLORS[int(r["n"]) - 1]
         line = f"{int(r['n']):2d}  {r['date'][:4]}-{r['date'][4:6]}-{r['date'][6:]}  {r['label']}"
