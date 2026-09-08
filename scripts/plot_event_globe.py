@@ -1,25 +1,24 @@
 #!/usr/bin/env python3
 """plot_event_globe.py
-Spherical (orthographic) globe map of the 15 USGS M6.5+ events used in the
-Hole A depth-RMS overlay analysis, via obspy.core.event.catalog.Catalog.plot()
+One spherical (orthographic) globe map per USGS M6.5+ event (15 total), via
+obspy.core.event.catalog.Catalog.plot()
 (https://docs.obspy.org/packages/autogen/obspy.core.event.catalog.Catalog.plot.html).
-Hole A's location (the MiDAS station) is marked with a red star for reference.
-
-A single ortho globe only shows the near-side hemisphere -- 6 of the 15
-events (Peru, Colombia, Mexico, the two Venezuela events, Mid-Atlantic Ridge)
-are >90 deg from Hole A and would be hidden on the far side. So this makes
-TWO globes: near-side (auto-centered on the near-side events' mean, which
-ends up close to Hole A) and far-side (auto-centered on the far-side events'
-mean), so all 15 events are visible somewhere.
+Each globe auto-centers on that single event (ortho projection centers on
+the mean lat/lon of whatever's in the Catalog -- with one event that's just
+the event itself). MiDAS Hole A is marked with a red star where it falls on
+the visible hemisphere; for events >90 deg from Hole A the station is on the
+far side of the globe and won't appear -- that's geometrically real, not a
+bug (it's exactly the same 6 events flagged in the earlier near/far-side
+version: Peru, Colombia, Mexico, the two Venezuela events, Mid-Atlantic
+Ridge).
 
 Usage: python3 plot_event_globe.py
-Output: agu2026/globe_map/usgs_M6.5plus_globe_nearside.png
-        agu2026/globe_map/usgs_M6.5plus_globe_farside.png
+Output: agu2026/globe_map/{date}_{mag}_{place_slug}.png  (15 files)
 """
 import os
+import re
 
 import cartopy.crs as ccrs
-import numpy as np
 import pandas as pd
 from obspy import UTCDateTime
 from obspy.core.event import Catalog, Event, Magnitude, Origin
@@ -32,72 +31,60 @@ OUT_DIR = os.path.join(HERE, "..", "globe_map")
 HOLE_A_LAT, HOLE_A_LON = 24.02304, 121.63015
 
 
-def great_circle_deg(lat0, lon0, lat, lon):
-    lat0r, lon0r = np.radians(lat0), np.radians(lon0)
-    latr, lonr = np.radians(lat), np.radians(lon)
-    cosval = (np.sin(lat0r) * np.sin(latr) +
-              np.cos(lat0r) * np.cos(latr) * np.cos(lonr - lon0r))
-    return np.degrees(np.arccos(np.clip(cosval, -1, 1)))
+def slugify(text, maxlen=30):
+    s = re.sub(r"[^A-Za-z0-9]+", "_", text).strip("_")
+    return s[:maxlen]
 
 
-def build_catalog(df):
-    cat = Catalog()
-    for _, row in df.iterrows():
-        origin = Origin(
-            time=UTCDateTime(row["time"]),
-            latitude=row["latitude"],
-            longitude=row["longitude"],
-            depth=row["depth"] * 1000.0,  # USGS csv is km; QuakeML Origin.depth is meters
-        )
-        magnitude = Magnitude(mag=row["mag"], magnitude_type=row["magType"])
-        event = Event(
-            origins=[origin],
-            magnitudes=[magnitude],
-            event_descriptions=[{"text": row["place"]}],
-        )
-        cat.append(event)
+def build_catalog(row):
+    origin = Origin(
+        time=UTCDateTime(row["time"]),
+        latitude=row["latitude"],
+        longitude=row["longitude"],
+        depth=row["depth"] * 1000.0,  # USGS csv is km; QuakeML Origin.depth is meters
+    )
+    magnitude = Magnitude(mag=row["mag"], magnitude_type=row["magType"])
+    event = Event(
+        origins=[origin],
+        magnitudes=[magnitude],
+        event_descriptions=[{"text": row["place"]}],
+    )
+    cat = Catalog(events=[event])
     return cat
 
 
-def plot_side(df_side, title, out_png, mark_hole_a):
-    cat = build_catalog(df_side)
+def plot_event(row, out_png):
+    cat = build_catalog(row)
+    date_str = row["time"][:10]
+    title = f"{date_str}  M{row['mag']} {row['place']}"
     fig = cat.plot(
         projection="ortho",
         resolution="l",
         label=None,
-        color="date",
+        color="depth",
         method="cartopy",
-        title=f"{title} ({len(cat)} events)",
+        title=title,
         show=False,
     )
-    if mark_hole_a:
-        ax = fig.axes[0]
-        ax.plot(HOLE_A_LON, HOLE_A_LAT, marker="*", markersize=18, color="red",
-                markeredgecolor="black", markeredgewidth=0.8,
-                transform=ccrs.PlateCarree(), zorder=10)
-        ax.text(HOLE_A_LON, HOLE_A_LAT - 8, "Hole A\n(Hualien)", fontsize=8,
-                color="red", ha="center", va="top", fontweight="bold",
-                transform=ccrs.PlateCarree(), zorder=10)
+    ax = fig.axes[0]
+    ax.plot(HOLE_A_LON, HOLE_A_LAT, marker="*", markersize=18, color="red",
+            markeredgecolor="black", markeredgewidth=0.8,
+            transform=ccrs.PlateCarree(), zorder=10)
+    ax.text(HOLE_A_LON, HOLE_A_LAT - 8, "Hole A", fontsize=8,
+            color="red", ha="center", va="top", fontweight="bold",
+            transform=ccrs.PlateCarree(), zorder=10)
     fig.savefig(out_png, dpi=150, bbox_inches="tight")
-    print(f"Saved {out_png}  ({len(cat)} events)")
+    print(f"Saved {out_png}")
 
 
 def main():
     os.makedirs(OUT_DIR, exist_ok=True)
-    df = pd.read_csv(CATALOG_CSV)
-    dist = great_circle_deg(HOLE_A_LAT, HOLE_A_LON, df["latitude"], df["longitude"])
-    near = df[dist <= 90].reset_index(drop=True)
-    far = df[dist > 90].reset_index(drop=True)
-    print(f"{len(near)} near-side (<=90 deg), {len(far)} far-side (>90 deg) events")
-
-    plot_side(near, "USGS M6.5+ events, 2026-06~08 -- near-side hemisphere\n"
-                     "vs. MiDAS Hole A (Hualien, Taiwan)",
-              os.path.join(OUT_DIR, "usgs_M6.5plus_globe_nearside.png"),
-              mark_hole_a=True)
-    plot_side(far, "USGS M6.5+ events, 2026-06~08 -- far-side hemisphere\n"
-                    "(>90° from Hole A, antipodal region)",
-              os.path.join(OUT_DIR, "usgs_M6.5plus_globe_farside.png"),
-              mark_hole_a=False)
+    df = pd.read_csv(CATALOG_CSV).sort_values("time").reset_index(drop=True)
+    print(f"{len(df)} events")
+    for _, row in df.iterrows():
+        date_str = row["time"][:10].replace("-", "")
+        fname = f"{date_str}_M{row['mag']}_{slugify(row['place'])}.png"
+        plot_event(row, os.path.join(OUT_DIR, fname))
 
 
 if __name__ == "__main__":
