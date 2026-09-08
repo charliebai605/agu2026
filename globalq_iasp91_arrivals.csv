@@ -1,0 +1,16 @@
+date_utc,usgs_id,mag,place,origin_time_utc,p_arrival_iasp91_utc,label,cwa_arrival_utc
+20260607,us7000srb1,7.8,"25 km SW of Kablalan, Philippines",2026-06-07T23:37:41.970Z,2026-06-07T23:41:55,M7.8 Philippines,
+20260608,us7000srcg,6.5,"18 km SW of Balangonan, Philippines",2026-06-08T00:55:12.546Z,2026-06-08T00:59:27,M6.5 Philippines,
+20260616,us7000st95,6.7,"40 km SE of Palu, Indonesia",2026-06-16T03:27:44.276Z,2026-06-16T03:33:10,M6.7 Indonesia,
+20260617,us7000stti,6.6,central Mid-Atlantic Ridge,2026-06-17T18:56:57.971Z,2026-06-17T19:13:23,M6.6 Mid-Atlantic Ridge,
+20260619,us7000sui3,6.6,"141 km ESE of Petropavlovsk-Kamchatsky, Russia",2026-06-19T06:52:32.241Z,2026-06-19T07:00:16,M6.6 Russia Kamchatka,
+20260624,us6000t7zc,7.2,"20 km E of San Felipe, Venezuela",2026-06-24T22:04:31.806Z,2026-06-24T22:21:33,M7.2 Venezuela,2026-06-24T21:29:30
+20260624,us6000t7zp,7.5,"20 km W of Catia La Mar, Venezuela",2026-06-24T22:05:04.053Z,2026-06-24T22:22:06,M7.5 Venezuela,2026-06-24T21:29:30
+20260624,us6000t7zq,6.9,"35 km ENE of Noda, Japan",2026-06-24T22:30:12.962Z,2026-06-24T22:35:22,M6.9 Japan,2026-06-24T21:29:30
+20260626,us6000t8ec,6.5,"44 km SW of Balangonan, Philippines",2026-06-26T11:34:41.463Z,2026-06-26T11:38:59,M6.5 Philippines,
+20260717,us7000t1bu,7.3,"60 km WSW of Puerto Madero, Mexico",2026-07-17T14:48:39.881Z,2026-07-17T15:04:30,M7.3 Mexico,2026-07-17T20:11:30
+20260728,us6000tgb9,6.8,"The 2026 Kumamoto Region, Japan Earthquake",2026-07-28T07:27:14.640Z,2026-07-28T07:30:01,M6.8 Japan Kumamoto,
+20260810,us6000tjl2,7.4,"2 km SE of San José del Palmar, Colombia",2026-08-10T12:34:28.009Z,2026-08-10T12:51:26,M7.4 Colombia,"2026-08-10T13:33:30;2026-08-10T17:58:20"
+20260814,us6000tkt2,7.8,"64 km NNW of Ende, Indonesia",2026-08-14T21:58:21.505Z,2026-08-14T22:04:51,M7.8 Indonesia Ende,
+20260815,us6000tkyk,6.9,"9 km WNW of Pematangsiantar, Indonesia",2026-08-15T10:54:51.798Z,2026-08-15T11:00:47,M6.9 Indonesia,2026-08-15T11:28:30
+20260820,us6000tm81,6.7,"37 km NE of Tambo, Peru",2026-08-20T18:00:18.541Z,2026-08-20T18:20:08,M6.7 Peru,

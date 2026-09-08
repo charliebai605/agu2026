@@ -1,0 +1,16 @@
+time,latitude,longitude,depth,mag,magType,nst,gap,dmin,rms,net,id,updated,place,type,horizontalError,depthError,magError,magNst,status,locationSource,magSource
+2026-08-20T18:00:18.541Z,-14.602,-73.6401,99,6.7,mww,165,17,4.058,0.6,us,us6000tm81,2026-09-06T08:36:29.775Z,"37 km NE of Tambo, Peru",earthquake,7.91,1.86,0.039,62,reviewed,us,us
+2026-08-15T10:54:51.798Z,2.9863,98.9853,175,6.9,mww,114,34,2.186,0.79,us,us6000tkyk,2026-08-22T12:01:46.810Z,"9 km WNW of Pematangsiantar, Indonesia",earthquake,6.99,1.931,0.04,59,reviewed,us,us
+2026-08-14T21:58:21.505Z,-8.3514,121.3478,10,7.8,mww,174,24,3.203,1.11,us,us6000tkt2,2026-09-04T23:14:58.685Z,"64 km NNW of Ende, Indonesia",earthquake,7.14,1.786,0.033,89,reviewed,us,us
+2026-08-10T12:34:28.009Z,4.8836,-76.2182,108.174,7.4,mww,151,32,1.469,0.87,us,us6000tjl2,2026-09-04T22:57:24.802Z,"2 km SE of San José del Palmar, Colombia",earthquake,6.54,4.673,0.026,147,reviewed,us,us
+2026-07-28T07:27:14.640Z,32.6043,130.6269,8,6.8,mww,122,38,0.56,0.99,us,us6000tgb9,2026-09-03T12:38:23.563Z,"The 2026 Kumamoto Region, Japan Earthquake",earthquake,4.59,1.736,0.046,45,reviewed,us,us
+2026-07-17T14:48:39.881Z,14.571,-92.9624,22,7.3,mww,249,51,3.157,1.17,us,us7000t1bu,2026-08-27T16:35:46.354Z,"60 km WSW of Puerto Madero, Mexico",earthquake,7.56,1.811,0.025,157,reviewed,us,us
+2026-06-26T11:34:41.463Z,5.2867,125.0719,42,6.5,mww,132,22,1.842,0.95,us,us6000t8ec,2026-08-22T18:42:49.040Z,"44 km SW of Balangonan, Philippines",earthquake,7.98,1.863,0.037,71,reviewed,us,us
+2026-06-24T22:30:12.962Z,40.2563,142.1794,34,6.9,mww,122,34,1.003,0.68,us,us6000t7zq,2026-09-04T15:40:50.040Z,"35 km ENE of Noda, Japan",earthquake,5.32,1.778,0.053,34,reviewed,us,us
+2026-06-24T22:05:04.053Z,10.5955,-67.2205,10,7.5,mww,64,39,0.422,0.63,us,us6000t7zp,2026-09-04T22:39:43.939Z,"20 km W of Catia La Mar, Venezuela",earthquake,6.43,1.886,0.036,75,reviewed,us,us
+2026-06-24T22:04:31.806Z,10.3713,-68.5564,10,7.2,mww,120,21,1.027,0.59,us,us6000t7zc,2026-09-04T15:40:50.040Z,"20 km E of San Felipe, Venezuela",earthquake,5.92,1.713,0.058,29,reviewed,us,us
+2026-06-19T06:52:32.241Z,52.7969,160.6867,14,6.6,mww,298,47,1.834,0.53,us,us7000sui3,2026-09-04T15:40:56.040Z,"141 km ESE of Petropavlovsk-Kamchatsky, Russia",earthquake,8.74,1.833,0.044,50,reviewed,us,us
+2026-06-17T18:56:57.971Z,-0.5843,-20.048,10,6.6,mww,281,26,9.242,0.65,us,us7000stti,2026-08-31T21:48:53.040Z,"central Mid-Atlantic Ridge",earthquake,9.25,1.724,0.038,66,reviewed,us,us
+2026-06-16T03:27:44.276Z,-1.1735,120.125,11,6.7,mww,244,17,3.833,0.73,us,us7000st95,2026-08-31T21:46:39.040Z,"40 km SE of Palu, Indonesia",earthquake,8.73,1.742,0.041,56,reviewed,us,us
+2026-06-08T00:55:12.546Z,5.4747,125.2173,75.065,6.5,mb,144,23,1.625,0.64,us,us7000srcg,2026-08-15T17:27:05.040Z,"18 km SW of Balangonan, Philippines",earthquake,7.76,4.683,0.034,342,reviewed,us,us
+2026-06-07T23:37:41.970Z,5.5994,125.056,56.991,7.8,mww,150,21,1.55,0.5,us,us7000srb1,2026-09-06T06:47:53.356Z,"25 km SW of Kablalan, Philippines",earthquake,9,4.678,0.028,125,reviewed,us,us
