@@ -5,8 +5,8 @@ obspy.core.event.catalog.Catalog.plot()
 (https://docs.obspy.org/packages/autogen/obspy.core.event.catalog.Catalog.plot.html).
 Each globe auto-centers on that single event (ortho projection centers on
 the mean lat/lon of whatever's in the Catalog -- with one event that's just
-the event itself). MiDAS Hole A is marked with a red star where it falls on
-the visible hemisphere; for events >90 deg from Hole A the station is on the
+the event itself). MiDAS Hole A is marked with an orange triangle where it
+falls on the visible hemisphere; for events >90 deg from Hole A the station is on the
 far side of the globe and won't appear -- that's geometrically real, not a
 bug (it's exactly the same 6 events flagged in the earlier near/far-side
 version: Peru, Colombia, Mexico, the two Venezuela events, Mid-Atlantic
@@ -67,11 +67,11 @@ def plot_event(row, out_png):
         show=False,
     )
     ax = fig.axes[0]
-    ax.plot(HOLE_A_LON, HOLE_A_LAT, marker="*", markersize=18, color="red",
+    ax.plot(HOLE_A_LON, HOLE_A_LAT, marker="^", markersize=14, color="orange",
             markeredgecolor="black", markeredgewidth=0.8,
             transform=ccrs.PlateCarree(), zorder=10)
     ax.text(HOLE_A_LON, HOLE_A_LAT - 8, "Hole A", fontsize=8,
-            color="red", ha="center", va="top", fontweight="bold",
+            color="orange", ha="center", va="top", fontweight="bold",
             transform=ccrs.PlateCarree(), zorder=10)
     fig.savefig(out_png, dpi=150, bbox_inches="tight")
     print(f"Saved {out_png}")

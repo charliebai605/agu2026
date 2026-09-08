@@ -14,6 +14,7 @@ import pandas as pd
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CATALOG_CSV = os.path.join(HERE, "..", "usgs_catalog_M6.5plus_202606-202608.csv")
+LABELS_CSV = os.path.join(HERE, "..", "globalq_iasp91_arrivals.csv")
 OUT_PNG = os.path.join(HERE, "..", "usgs_M6.5plus_magnitude_timeline.png")
 
 
@@ -22,16 +23,24 @@ def main():
     df["time"] = pd.to_datetime(df["time"])
     df = df.sort_values("time").reset_index(drop=True)
 
-    fig, ax = plt.subplots(figsize=(11, 5))
+    # short place tag (e.g. "Venezuela", "Indonesia Ende") from the curated
+    # label column, stripping the leading "M#.# " magnitude prefix
+    labels = pd.read_csv(LABELS_CSV)[["usgs_id", "label"]]
+    labels["place_tag"] = labels["label"].str.replace(r"^M[\d.]+\s+", "", regex=True)
+    df = df.merge(labels, left_on="id", right_on="usgs_id", how="left")
+
+    fig, ax = plt.subplots(figsize=(12, 5.5))
     colors = plt.cm.viridis((df["mag"] - df["mag"].min()) /
                             (df["mag"].max() - df["mag"].min() + 1e-9))
     bars = ax.bar(df["time"], df["mag"], width=1.2, color=colors,
                    edgecolor="black", linewidth=0.6)
 
-    for x, m, place in zip(df["time"], df["mag"], df["place"]):
-        ax.text(x, m + 0.05, f"M{m}", ha="center", va="bottom", fontsize=8)
+    for i, (x, m, place_tag) in enumerate(zip(df["time"], df["mag"], df["place_tag"])):
+        offset = 0.32 if i % 2 else 0.05  # stagger closely-spaced labels
+        ax.text(x, m + offset, f"M{m}  {place_tag}", ha="left", va="bottom",
+                 fontsize=8, rotation=30, rotation_mode="anchor")
 
-    ax.set_ylim(6.0, 8.2)
+    ax.set_ylim(6.0, 8.8)
     ax.set_ylabel("Magnitude", fontsize=11)
     ax.set_xlabel("Origin time (UTC)", fontsize=11)
     ax.set_title(f"USGS M6.5+ events, 2026-06~08 ({len(df)} events)",
