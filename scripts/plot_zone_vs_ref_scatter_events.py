@@ -55,7 +55,7 @@ N_EVENTS = 15
 EVENT_COLORS = [plt.cm.tab20(i / 19) for i in range(N_EVENTS)]
 
 
-def scatter_with_events(bg, ev, ycol, ylabel, title, out_png, log_y=False, xlim_hi=None):
+def scatter_with_events(bg, ev, ycol, ylabel, title, out_png, log_y=False, xlim_hi=None, ylim_hi=None):
     fig, ax = plt.subplots(figsize=(9.5, 5.5))
     ax.scatter(bg["ref_rms"], bg[ycol], s=14, alpha=0.35,
                c="lightgray", edgecolor="none", zorder=1, label="all hours")
@@ -76,6 +76,9 @@ def scatter_with_events(bg, ev, ycol, ylabel, title, out_png, log_y=False, xlim_
     if xlim_hi is not None:
         lo, _ = ax.get_xlim()
         ax.set_xlim(lo, xlim_hi)
+    if ylim_hi is not None:
+        lo, _ = ax.get_ylim()
+        ax.set_ylim(lo, ylim_hi)
     ax.set_xlabel("Bottom reference-segment average RMS\n"
                    "(strain rate, 1/s; depth_rms ref.csv, log scale)", fontsize=10)
     ax.set_ylabel(ylabel, fontsize=10)
@@ -106,13 +109,16 @@ def main():
 
     scatter_with_events(bg, ev, "rms_damage", "Damage zone (DZ) RMS (strain rate, 1/s)",
                          "DZ RMS vs. bottom reference RMS -- 15 global events highlighted",
-                         os.path.join(OUT_DIR, "dz_vs_ref_rms_events.png"), log_y=True, xlim_hi=1e-7)
+                         os.path.join(OUT_DIR, "dz_vs_ref_rms_events.png"), log_y=True,
+                         xlim_hi=1e-7, ylim_hi=1e-7)
     scatter_with_events(bg, ev, "rms_fault", "Fault zone (FZ) RMS (strain rate, 1/s)",
                          "FZ RMS vs. bottom reference RMS -- 15 global events highlighted",
-                         os.path.join(OUT_DIR, "fz_vs_ref_rms_events.png"), log_y=True, xlim_hi=1e-7)
+                         os.path.join(OUT_DIR, "fz_vs_ref_rms_events.png"), log_y=True,
+                         xlim_hi=1e-7, ylim_hi=1e-7)
     scatter_with_events(bg, ev, "fz_dz_ratio", "FZ / DZ RMS ratio",
                          "FZ/DZ ratio vs. bottom reference RMS -- 15 global events highlighted",
-                         os.path.join(OUT_DIR, "fz_dz_ratio_vs_ref_rms_events.png"), log_y=False)
+                         os.path.join(OUT_DIR, "fz_dz_ratio_vs_ref_rms_events.png"), log_y=False,
+                         xlim_hi=1e-7)
 
 
 if __name__ == "__main__":

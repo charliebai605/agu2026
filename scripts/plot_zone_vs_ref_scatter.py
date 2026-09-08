@@ -43,13 +43,19 @@ def load_all():
     return df
 
 
-def scatter(df, ycol, ylabel, title, out_png, log_y=False):
+def scatter(df, ycol, ylabel, title, out_png, log_y=False, xlim_hi=None, ylim_hi=None):
     fig, ax = plt.subplots(figsize=(6.5, 5.5))
     ax.scatter(df["ref_rms"], df[ycol], s=18, alpha=0.65,
                c="steelblue", edgecolor="black", linewidth=0.3)
     ax.set_xscale("log")
     if log_y:
         ax.set_yscale("log")
+    if xlim_hi is not None:
+        lo, _ = ax.get_xlim()
+        ax.set_xlim(lo, xlim_hi)
+    if ylim_hi is not None:
+        lo, _ = ax.get_ylim()
+        ax.set_ylim(lo, ylim_hi)
     ax.set_xlabel("Bottom reference-segment average RMS\n"
                    "(strain rate, 1/s; depth_rms ref.csv, log scale)", fontsize=10)
     ax.set_ylabel(ylabel, fontsize=10)
@@ -67,13 +73,16 @@ def main():
 
     scatter(df, "rms_damage", "Damage zone (DZ) RMS (strain rate, 1/s)",
             "DZ RMS vs. bottom reference RMS",
-            os.path.join(OUT_DIR, "dz_vs_ref_rms.png"), log_y=True)
+            os.path.join(OUT_DIR, "dz_vs_ref_rms.png"), log_y=True,
+            xlim_hi=1e-7, ylim_hi=1e-7)
     scatter(df, "rms_fault", "Fault zone (FZ) RMS (strain rate, 1/s)",
             "FZ RMS vs. bottom reference RMS",
-            os.path.join(OUT_DIR, "fz_vs_ref_rms.png"), log_y=True)
+            os.path.join(OUT_DIR, "fz_vs_ref_rms.png"), log_y=True,
+            xlim_hi=1e-7, ylim_hi=1e-7)
     scatter(df, "fz_dz_ratio", "FZ / DZ RMS ratio",
             "FZ/DZ ratio vs. bottom reference RMS",
-            os.path.join(OUT_DIR, "fz_dz_ratio_vs_ref_rms.png"), log_y=False)
+            os.path.join(OUT_DIR, "fz_dz_ratio_vs_ref_rms.png"), log_y=False,
+            xlim_hi=1e-7)
 
 
 if __name__ == "__main__":
