@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>Hourly Zone RMS Scatter (interactive)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2/plotly.min.js"></script>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1a1a1a;
+    --muted: #6b7280;
+    --border: #e5e7eb;
+    --panel-bg: #f8f9fb;
+    --accent: #2563eb;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+  }
+  header {
+    padding: 16px 20px 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  h1 { font-size: 1.25rem; margin: 0 0 4px; }
+  .subtitle { color: var(--muted); font-size: 0.85rem; }
+  .tabs {
+    display: flex;
+    gap: 4px;
+    padding: 10px 20px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .tab-btn {
+    padding: 8px 18px;
+    border: 1px solid var(--border);
+    border-bottom: none;
+    background: var(--panel-bg);
+    color: var(--muted);
+    border-radius: 8px 8px 0 0;
+    cursor: pointer;
+    font-size: 0.9rem;
+  }
+  .tab-btn.active {
+    background: var(--bg);
+    color: var(--fg);
+    font-weight: 600;
+    border-color: var(--accent);
+    border-bottom: 2px solid var(--bg);
+    margin-bottom: -1px;
+  }
+  .layout {
+    display: flex;
+    gap: 16px;
+    padding: 16px 20px;
+    align-items: flex-start;
+  }
+  .chart-wrap {
+    flex: 1;
+    min-width: 0;
+  }
+  .chart { width: 100%; height: 640px; }
+  .panel {
+    width: 260px;
+    flex-shrink: 0;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--panel-bg);
+    padding: 12px;
+    max-height: 700px;
+    display: flex;
+    flex-direction: column;
+  }
+  .panel h2 { font-size: 0.9rem; margin: 0 0 8px; }
+  .panel-actions { display: flex; gap: 6px; margin-bottom: 8px; }
+  .panel-actions button {
+    flex: 1;
+    padding: 5px 4px;
+    font-size: 0.75rem;
+    border: 1px solid var(--border);
+    background: #fff;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .panel-actions button:hover { background: #eef2ff; }
+  .month-group { margin-bottom: 6px; }
+  .month-group summary {
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 4px 2px;
+    color: var(--muted);
+  }
+  .date-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 4px;
+    font-size: 0.78rem;
+    border-radius: 4px;
+  }
+  .date-row:hover { background: #eef2ff; }
+  .date-row input { cursor: pointer; }
+  .swatch {
+    width: 10px; height: 10px; border-radius: 50%;
+    display: inline-block; flex-shrink: 0;
+    border: 1px solid rgba(0,0,0,0.25);
+  }
+  .scroll-area { overflow-y: auto; flex: 1; }
+  footer {
+    padding: 10px 20px 20px;
+    color: var(--muted);
+    font-size: 0.75rem;
+  }
+  @media (max-width: 860px) {
+    .layout { flex-direction: column; }
+    .panel { width: 100%; max-height: 300px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Hole A Zone RMS vs. bottom reference RMS — hourly scatter</h1>
+  <div class="subtitle">2026-06-07 ~ 2026-09-20（78 個乾淨天數，共 1821 個小時點）· 顏色 = 日期（連續色階）</div>
+</header>
+
+<div class="tabs">
+  <button class="tab-btn active" data-tab="dz">DZ (Damage Zone)</button>
+  <button class="tab-btn" data-tab="fz">FZ (Fault Zone)</button>
+  <button class="tab-btn" data-tab="ratio">FZ / DZ ratio</button>
+</div>
+
+<div class="layout">
+  <div class="chart-wrap">
+    <div id="chart" class="chart"></div>
+  </div>
+  <div class="panel">
+    <h2>選擇天數</h2>
+    <div class="panel-actions">
+      <button id="selectAll">全選</button>
+      <button id="selectNone">全不選</button>
+    </div>
+    <div class="scroll-area" id="dateList"></div>
+  </div>
+</div>
+
+<footer>
+  資料來源：depth_rms_tdms.py（bottom reference RMS）+ zone_rms_daily.py（DZ/FZ RMS），
+  6-8 月的 25 天校正 bug 已修復（見 bottom_rms_baseline_investigation.md 第 8 節）。
+  X 軸、DZ/FZ 的 Y 軸皆為 log scale。
+</footer>
+
+<script>
+const YCOLS = {
+  dz:    { key: "dz",    label: "Damage zone (DZ) RMS (strain rate, 1/s)", log: true,  title: "DZ RMS vs. bottom reference RMS" },
+  fz:    { key: "fz",    label: "Fault zone (FZ) RMS (strain rate, 1/s)",  log: true,  title: "FZ RMS vs. bottom reference RMS" },
+  ratio: { key: "ratio", label: "FZ / DZ RMS ratio",                       log: false, title: "FZ / DZ ratio vs. bottom reference RMS" },
+};
+
+let DATA = null;
+let currentTab = "dz";
+const visibleDates = new Set();
+
+function fmtDate(d) {
+  return `${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}`;
+}
+
+function dateColor(idx, n) {
+  // viridis-ish continuous colormap sampled via Plotly's colorscale helper is not
+  // available client-side without a chart, so use a small hand-picked viridis LUT.
+  const viridis = ["#440154","#472d7b","#3b528b","#2c728e","#21918c","#28ae80","#5ec962","#addc30","#fde725"];
+  const t = n <= 1 ? 0 : idx / (n - 1);
+  const scaled = t * (viridis.length - 1);
+  const i0 = Math.floor(scaled), i1 = Math.min(i0 + 1, viridis.length - 1);
+  const f = scaled - i0;
+  const c0 = hexToRgb(viridis[i0]), c1 = hexToRgb(viridis[i1]);
+  const r = Math.round(c0[0] + (c1[0]-c0[0])*f);
+  const g = Math.round(c0[1] + (c1[1]-c0[1])*f);
+  const b = Math.round(c0[2] + (c1[2]-c0[2])*f);
+  return `rgb(${r},${g},${b})`;
+}
+function hexToRgb(hex) {
+  const v = parseInt(hex.slice(1), 16);
+  return [(v>>16)&255, (v>>8)&255, v&255];
+}
+
+function buildDateList() {
+  const container = document.getElementById("dateList");
+  const byMonth = {};
+  DATA.dates.forEach((d, i) => {
+    const ym = d.slice(0,6);
+    (byMonth[ym] = byMonth[ym] || []).push([d, i]);
+  });
+  const monthNames = { "202606":"6月", "202607":"7月", "202608":"8月", "202609":"9月" };
+  Object.keys(byMonth).sort().forEach(ym => {
+    const details = document.createElement("details");
+    details.className = "month-group";
+    details.open = true;
+    const summary = document.createElement("summary");
+    summary.textContent = `${monthNames[ym] || ym} (${byMonth[ym].length} 天)`;
+    details.appendChild(summary);
+    byMonth[ym].forEach(([d, i]) => {
+      const row = document.createElement("label");
+      row.className = "date-row";
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.checked = true;
+      cb.dataset.date = d;
+      cb.addEventListener("change", () => {
+        if (cb.checked) visibleDates.add(d); else visibleDates.delete(d);
+        render();
+      });
+      const sw = document.createElement("span");
+      sw.className = "swatch";
+      sw.style.background = dateColor(i, DATA.dates.length);
+      row.appendChild(cb);
+      row.appendChild(sw);
+      row.appendChild(document.createTextNode(fmtDate(d)));
+      details.appendChild(row);
+    });
+    container.appendChild(details);
+  });
+}
+
+function render() {
+  const cfg = YCOLS[currentTab];
+  const shown = DATA.dates.filter(d => visibleDates.has(d));
+
+  const xAll = [], yAll = [];
+  DATA.records.forEach(r => {
+    if (visibleDates.has(r.date)) { xAll.push(r.ref); yAll.push(r[cfg.key]); }
+  });
+
+  const traces = shown.map(d => {
+    const idx = DATA.dates.indexOf(d);
+    const pts = DATA.records.filter(r => r.date === d);
+    return {
+      x: pts.map(r => r.ref),
+      y: pts.map(r => r[cfg.key]),
+      customdata: pts.map(r => `${fmtDate(d)} h${String(r.hour).padStart(2,"0")}`),
+      hovertemplate: "%{customdata}<br>ref=%{x:.3e}<br>y=%{y:.3e}<extra></extra>",
+      mode: "markers",
+      type: "scatter",
+      name: fmtDate(d),
+      marker: {
+        color: dateColor(idx, DATA.dates.length),
+        size: 8,
+        line: { width: 0.6, color: "rgba(0,0,0,0.5)" },
+      },
+      showlegend: false,
+    };
+  });
+
+  // invisible trace just to drive a continuous colorbar
+  traces.push({
+    x: [null], y: [null], mode: "markers",
+    marker: {
+      color: [0], cmin: 0, cmax: Math.max(DATA.dates.length - 1, 1),
+      colorscale: "Viridis", showscale: true,
+      colorbar: {
+        title: "Date", titleside: "top",
+        tickvals: DATA.dates.map((_, i) => i).filter((_, i) => i % Math.ceil(DATA.dates.length/8) === 0),
+        ticktext: DATA.dates.filter((_, i) => i % Math.ceil(DATA.dates.length/8) === 0).map(fmtDate),
+      },
+      size: 0.1,
+    },
+    showlegend: false,
+    hoverinfo: "skip",
+  });
+
+  const layout = {
+    title: { text: cfg.title, font: { size: 16 } },
+    xaxis: {
+      title: "Bottom reference-segment RMS (strain rate, 1/s)",
+      type: "log",
+    },
+    yaxis: {
+      title: cfg.label,
+      type: cfg.log ? "log" : "linear",
+    },
+    margin: { t: 50, r: 30, l: 70, b: 60 },
+    hovermode: "closest",
+    plot_bgcolor: "#fff",
+    paper_bgcolor: "#fff",
+  };
+
+  Plotly.react("chart", traces, layout, { responsive: true, displaylogo: false });
+}
+
+function setupTabs() {
+  document.querySelectorAll(".tab-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      currentTab = btn.dataset.tab;
+      render();
+    });
+  });
+}
+
+fetch("data.json").then(r => r.json()).then(data => {
+  DATA = data;
+  DATA.dates.forEach(d => visibleDates.add(d));
+  buildDateList();
+  setupTabs();
+  render();
+
+  document.getElementById("selectAll").addEventListener("click", () => {
+    document.querySelectorAll("#dateList input[type=checkbox]").forEach(cb => { cb.checked = true; visibleDates.add(cb.dataset.date); });
+    render();
+  });
+  document.getElementById("selectNone").addEventListener("click", () => {
+    document.querySelectorAll("#dateList input[type=checkbox]").forEach(cb => { cb.checked = false; visibleDates.delete(cb.dataset.date); });
+    render();
+  });
+});
+</script>
+
+</body>
+</html>
