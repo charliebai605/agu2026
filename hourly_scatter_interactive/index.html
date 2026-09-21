@@ -29,9 +29,36 @@
   .subtitle { color: var(--muted); font-size: 0.85rem; }
   .tabs {
     display: flex;
+    align-items: center;
+    justify-content: space-between;
     gap: 4px;
     padding: 10px 20px 0;
     border-bottom: 1px solid var(--border);
+  }
+  .tab-group { display: flex; gap: 4px; }
+  .scale-toggle {
+    display: flex;
+    gap: 2px;
+    margin-bottom: 6px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 2px;
+    background: var(--panel-bg);
+  }
+  .scale-btn {
+    padding: 5px 14px;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.8rem;
+  }
+  .scale-btn.active {
+    background: var(--bg);
+    color: var(--fg);
+    font-weight: 600;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
   }
   .tab-btn {
     padding: 8px 18px;
@@ -61,7 +88,7 @@
     flex: 1;
     min-width: 0;
   }
-  .chart { width: 100%; height: 640px; }
+  .chart { width: 100%; aspect-ratio: 16 / 9; min-height: 420px; }
   .panel {
     width: 260px;
     flex-shrink: 0;
@@ -124,13 +151,19 @@
 
 <header>
   <h1>Hole A Zone RMS vs. bottom reference RMS — hourly scatter</h1>
-  <div class="subtitle">2026-06-07 ~ 2026-09-20（78 個乾淨天數，共 1821 個小時點）· 顏色 = 日期（連續色階）</div>
+  <div class="subtitle">2026-06-07 ~ 2026-09-20（76 個有效天數，共 1773 個小時點）· 顏色 = 日期（連續色階）</div>
 </header>
 
 <div class="tabs">
-  <button class="tab-btn active" data-tab="dz">DZ (Damage Zone)</button>
-  <button class="tab-btn" data-tab="fz">FZ (Fault Zone)</button>
-  <button class="tab-btn" data-tab="ratio">FZ / DZ ratio</button>
+  <div class="tab-group">
+    <button class="tab-btn active" data-tab="dz">DZ (Damage Zone)</button>
+    <button class="tab-btn" data-tab="fz">FZ (Fault Zone)</button>
+    <button class="tab-btn" data-tab="ratio">FZ / DZ ratio</button>
+  </div>
+  <div class="scale-toggle">
+    <button class="scale-btn active" data-scale="log">Log</button>
+    <button class="scale-btn" data-scale="linear">Linear</button>
+  </div>
 </div>
 
 <div class="layout">
@@ -150,7 +183,7 @@
 <footer>
   資料來源：depth_rms_tdms.py（bottom reference RMS）+ zone_rms_daily.py（DZ/FZ RMS），
   6-8 月的 25 天校正 bug 已修復（見 bottom_rms_baseline_investigation.md 第 8 節）。
-  X 軸、DZ/FZ 的 Y 軸皆為 log scale。
+  X 軸、DZ/FZ 的 Y 軸可切換 log/linear（右上角）；FZ/DZ ratio 的 Y 軸固定 linear。
 </footer>
 
 <script>
@@ -162,6 +195,7 @@ const YCOLS = {
 
 let DATA = null;
 let currentTab = "dz";
+let currentScale = "log";
 const visibleDates = new Set();
 
 function fmtDate(d) {
@@ -272,14 +306,16 @@ function render() {
   });
 
   const layout = {
-    title: { text: cfg.title, font: { size: 16 } },
+    title: { text: `${cfg.title} (${currentScale} axes)`, font: { size: 16 } },
     xaxis: {
       title: "Bottom reference-segment RMS (strain rate, 1/s)",
-      type: "log",
+      type: currentScale,
     },
     yaxis: {
       title: cfg.label,
-      type: cfg.log ? "log" : "linear",
+      // FZ/DZ ratio is a bounded dimensionless quantity (~1.0-1.5) -- keep it linear
+      // regardless of the toggle, same convention as the static plot_hourly_scatter_combined.py
+      type: cfg.log ? currentScale : "linear",
     },
     margin: { t: 50, r: 30, l: 70, b: 60 },
     hovermode: "closest",
@@ -301,11 +337,23 @@ function setupTabs() {
   });
 }
 
+function setupScaleToggle() {
+  document.querySelectorAll(".scale-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".scale-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      currentScale = btn.dataset.scale;
+      render();
+    });
+  });
+}
+
 fetch("data.json").then(r => r.json()).then(data => {
   DATA = data;
   DATA.dates.forEach(d => visibleDates.add(d));
   buildDateList();
   setupTabs();
+  setupScaleToggle();
   render();
 
   document.getElementById("selectAll").addEventListener("click", () => {
