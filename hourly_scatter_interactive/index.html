@@ -60,6 +60,31 @@
     font-weight: 600;
     box-shadow: 0 1px 2px rgba(0,0,0,0.08);
   }
+  .controls-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 20px 0;
+  }
+  .play-controls { display: flex; align-items: center; gap: 6px; }
+  .play-controls button {
+    padding: 5px 14px;
+    border: 1px solid var(--border);
+    background: #fff;
+    color: var(--fg);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.8rem;
+  }
+  .play-controls button:hover { background: #eef2ff; }
+  .speed-select {
+    padding: 5px 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.8rem;
+    background: #fff;
+  }
+  .play-status { color: var(--muted); font-size: 0.78rem; min-width: 90px; }
   .tab-btn {
     padding: 8px 18px;
     border: 1px solid var(--border);
@@ -166,6 +191,19 @@
   </div>
 </div>
 
+<div class="controls-row">
+  <div class="play-controls">
+    <button id="playBtn">▶ Play</button>
+    <button id="resetBtn">↺ Reset</button>
+    <select id="speedSelect" class="speed-select">
+      <option value="10">快</option>
+      <option value="30" selected>正常</option>
+      <option value="80">慢</option>
+    </select>
+    <span id="playStatus" class="play-status"></span>
+  </div>
+</div>
+
 <div class="layout">
   <div class="chart-wrap">
     <div id="chart" class="chart"></div>
@@ -259,53 +297,42 @@ function buildDateList() {
   });
 }
 
-function render() {
+// One point per (date, hour); DATA.records is already in chronological order
+// (export_interactive_scatter_data.py writes dates in order, and within each date
+// hours are pre-sorted), so filtering it preserves chronological order -- that's
+// what the Play animation walks through.
+function buildVisiblePoints() {
   const cfg = YCOLS[currentTab];
-  const shown = DATA.dates.filter(d => visibleDates.has(d));
+  const pts = DATA.records.filter(r => visibleDates.has(r.date));
+  return {
+    x: pts.map(r => r.ref),
+    y: pts.map(r => r[cfg.key]),
+    color: pts.map(r => dateColor(DATA.dates.indexOf(r.date), DATA.dates.length)),
+    customdata: pts.map(r => `${fmtDate(r.date)} h${String(r.hour).padStart(2,"0")}`),
+  };
+}
 
-  const xAll = [], yAll = [];
-  DATA.records.forEach(r => {
-    if (visibleDates.has(r.date)) { xAll.push(r.ref); yAll.push(r[cfg.key]); }
-  });
-
-  const traces = shown.map(d => {
-    const idx = DATA.dates.indexOf(d);
-    const pts = DATA.records.filter(r => r.date === d);
-    return {
-      x: pts.map(r => r.ref),
-      y: pts.map(r => r[cfg.key]),
-      customdata: pts.map(r => `${fmtDate(d)} h${String(r.hour).padStart(2,"0")}`),
-      hovertemplate: "%{customdata}<br>ref=%{x:.3e}<br>y=%{y:.3e}<extra></extra>",
-      mode: "markers",
-      type: "scatter",
-      name: fmtDate(d),
-      marker: {
-        color: dateColor(idx, DATA.dates.length),
-        size: 8,
-        line: { width: 0.6, color: "rgba(0,0,0,0.5)" },
-      },
-      showlegend: false,
-    };
-  });
-
-  // invisible trace just to drive a continuous colorbar
-  traces.push({
+function buildColorbarTrace() {
+  // invisible trace, only exists to drive a continuous colorbar for date
+  return {
     x: [null], y: [null], mode: "markers",
     marker: {
       color: [0], cmin: 0, cmax: Math.max(DATA.dates.length - 1, 1),
       colorscale: "Viridis", showscale: true,
       colorbar: {
         title: "Date", titleside: "top",
-        tickvals: DATA.dates.map((_, i) => i).filter((_, i) => i % Math.ceil(DATA.dates.length/8) === 0),
-        ticktext: DATA.dates.filter((_, i) => i % Math.ceil(DATA.dates.length/8) === 0).map(fmtDate),
+        tickvals: DATA.dates.map((_, i) => i).filter((_, i) => i % Math.ceil(DATA.dates.length / 8) === 0),
+        ticktext: DATA.dates.filter((_, i) => i % Math.ceil(DATA.dates.length / 8) === 0).map(fmtDate),
       },
       size: 0.1,
     },
     showlegend: false,
     hoverinfo: "skip",
-  });
+  };
+}
 
-  const layout = {
+function buildLayout(cfg) {
+  return {
     title: { text: `${cfg.title} (${currentScale} axes)`, font: { size: 16 } },
     xaxis: {
       title: "Bottom reference-segment RMS (strain rate, 1/s)",
@@ -322,8 +349,87 @@ function render() {
     plot_bgcolor: "#fff",
     paper_bgcolor: "#fff",
   };
+}
 
-  Plotly.react("chart", traces, layout, { responsive: true, displaylogo: false });
+function mainTraceFrom(pts) {
+  return {
+    x: pts.x, y: pts.y, customdata: pts.customdata,
+    hovertemplate: "%{customdata}<br>ref=%{x:.3e}<br>y=%{y:.3e}<extra></extra>",
+    mode: "markers",
+    type: "scatter",
+    marker: { color: pts.color, size: 8, line: { width: 0.6, color: "rgba(0,0,0,0.5)" } },
+    showlegend: false,
+  };
+}
+
+function render() {
+  stopAnimation();
+  const cfg = YCOLS[currentTab];
+  const pts = buildVisiblePoints();
+  Plotly.react("chart", [mainTraceFrom(pts), buildColorbarTrace()], buildLayout(cfg),
+    { responsive: true, displaylogo: false });
+}
+
+// ---- Play animation: reveal points one hour at a time, in chronological order ----
+let animTimer = null;
+let animPoints = null;
+let animIndex = 0;
+let animAccum = null;
+
+function stopAnimation() {
+  if (animTimer) { clearInterval(animTimer); animTimer = null; }
+  const btn = document.getElementById("playBtn");
+  if (btn) btn.textContent = "▶ Play";
+}
+
+function startAnimation() {
+  const cfg = YCOLS[currentTab];
+  animPoints = buildVisiblePoints();
+  animIndex = 0;
+  animAccum = { x: [], y: [], color: [], customdata: [] };
+
+  if (animPoints.x.length === 0) {
+    document.getElementById("playStatus").textContent = "沒有選取任何天數";
+    return;
+  }
+
+  const emptyMain = mainTraceFrom(animAccum);
+  Plotly.react("chart", [emptyMain, buildColorbarTrace()], buildLayout(cfg),
+    { responsive: true, displaylogo: false });
+
+  const speed = +document.getElementById("speedSelect").value;
+  document.getElementById("playBtn").textContent = "⏸ Pause";
+  animTimer = setInterval(stepAnimation, speed);
+}
+
+function stepAnimation() {
+  if (!animPoints || animIndex >= animPoints.x.length) {
+    stopAnimation();
+    document.getElementById("playStatus").textContent = `完成：${animPoints.x.length} 點`;
+    return;
+  }
+  animAccum.x.push(animPoints.x[animIndex]);
+  animAccum.y.push(animPoints.y[animIndex]);
+  animAccum.color.push(animPoints.color[animIndex]);
+  animAccum.customdata.push(animPoints.customdata[animIndex]);
+  animIndex++;
+  Plotly.restyle("chart", {
+    x: [animAccum.x], y: [animAccum.y],
+    "marker.color": [animAccum.color],
+    customdata: [animAccum.customdata],
+  }, [0]);
+  document.getElementById("playStatus").textContent = `${animIndex} / ${animPoints.x.length}`;
+}
+
+function setupPlayControls() {
+  document.getElementById("playBtn").addEventListener("click", () => {
+    if (animTimer) stopAnimation();
+    else startAnimation();
+  });
+  document.getElementById("resetBtn").addEventListener("click", () => {
+    document.getElementById("playStatus").textContent = "";
+    render();
+  });
 }
 
 function setupTabs() {
@@ -354,6 +460,7 @@ fetch("data.json").then(r => r.json()).then(data => {
   buildDateList();
   setupTabs();
   setupScaleToggle();
+  setupPlayControls();
   render();
 
   document.getElementById("selectAll").addEventListener("click", () => {
