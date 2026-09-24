@@ -416,3 +416,28 @@ strain-rate 量級，不是第 8 節那種 raw-count 校正 bug。
 `scripts/_data/` 底下這批新抓下來的 CSV **沒有進 git**（沿用第 8 節 25 天回填、以及
 6/23-7/8 那次的慣例：只 commit `data.json`／`index.html`，原始 CSV 留在本機 `_data/` 當
 工作檔案，不進版控）。
+
+### 11.1 補上 8/23-8/27（2026-09-24）
+
+同一次缺口清查也發現 8 月底有 5 天缺（`20260823`~`20260827`），一併補上：
+
+| 日期 | 狀況 | 處理方式 |
+| :--- | :--- | :--- |
+| 8/25、8/26 | `_zone_rms_stream.csv` 已存在，數值正常 | 直接同步 |
+| 8/27 | `_zone_rms_stream.csv` 完全不存在（有個 `.corrupted_dedup_bug` 殘留檔，是 `rms_stream_daemon.py` process race 留下的損毀檔案） | 用 `zone_rms_daily.process_day()` 走 nc fallback 重算，23 筆記錄，數值正常 |
+| 8/23、8/24 | 有 `_zone_rms_mseed_0p1-1p0Hz.csv`，但**內容全部是 NaN** | 同樣用 nc fallback 重算 |
+
+**8/23、8/24 全 NaN 的根因**：這兩天正好是 `midas_datsrv_ceph_incident_20260823.md` 記錄的
+Ceph 掛載權限事件當天／隔天——`depth_rms_mseed.py`/`zone_rms_mseed.py` 走 midas-datasrv 的
+MiniSEED archive，掛載壞掉時 `os.path.exists()` 吞掉 `PermissionError` 回傳 `False`，讓
+`load_ch()` 誤判成「檔案本來就不存在」而不是真的 raise，於是靜默輸出全 NaN，不會報錯、
+也不會讓下游腳本失敗——只有回頭看數值才會發現。這跟第 8 節的 raw-count 校正 bug是完全不同
+的失效模式，但一樣是「檔案存在、格式對、就是內容是假的」，提醒之後查 `_data/` 缺口時不能
+只看檔案存不存在，數量級/NaN 也要抽查。
+
+跑 `zone_rms_daily.py` 時遇到一個操作上的坑：**第一次用 SSH 前景執行（沒加 `nohup`），SSH
+連線中途斷過一次，process 沒有存活**，重跑一次才成功——處理多天／長時間的背景運算，一定要
+`nohup ... & disown` 讓 process 脫離 SSH session，不要依賴前景執行撐過整個計算過程。
+
+**現況（2026-09-24）**：頁面涵蓋 **112 個有效天數、2565 個小時點**，6 月、7 月、8 月已知的
+缺口都補完了。
