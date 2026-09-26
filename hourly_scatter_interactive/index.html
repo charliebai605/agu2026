@@ -113,19 +113,112 @@
     flex: 1;
     min-width: 0;
   }
-  .chart { width: 100%; aspect-ratio: 16 / 9; min-height: 420px; }
-  .panel {
+  .chart-box {
+    position: relative;
+    width: 100%;
+    height: 520px;
+    min-width: 320px;
+    min-height: 320px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .chart-box .chart { width: 100%; height: 100%; }
+  /* Native CSS `resize` is unreliable across browsers (barely visible / unsupported
+     in some Safari versions on non-textarea elements), so this is a plain hand-drawn
+     grip + JS drag handler instead -- see setupResizeHandle() below. */
+  .resize-handle {
+    position: absolute;
+    right: 2px;
+    bottom: 2px;
+    width: 18px;
+    height: 18px;
+    cursor: nwse-resize;
+    background:
+      linear-gradient(135deg,
+        transparent 0 38%, var(--muted) 38% 46%,
+        transparent 46% 58%, var(--muted) 58% 66%,
+        transparent 66% 78%, var(--muted) 78% 86%,
+        transparent 86%);
+    opacity: 0.55;
+    z-index: 5;
+  }
+  .resize-handle:hover { opacity: 1; }
+  .side-col {
     width: 260px;
     flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .panel {
+    width: 100%;
     border: 1px solid var(--border);
     border-radius: 10px;
     background: var(--panel-bg);
     padding: 12px;
-    max-height: 700px;
+  }
+  /* Flex/scroll ownership lives on this plain div, not on <details> itself --
+     browsers render non-summary <details> content through an internal wrapper,
+     so display:flex/max-height on <details> is not reliably honored there. */
+  .panel-body {
     display: flex;
     flex-direction: column;
+    max-height: 380px;
+    margin-top: 8px;
   }
-  .panel h2 { font-size: 0.9rem; margin: 0 0 8px; }
+  .typhoon-row {
+    padding: 4px 2px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+  }
+  .typhoon-row:hover { background: #eef2ff; }
+  .typhoon-row label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+  }
+  .typhoon-row .typhoon-range {
+    color: var(--muted);
+    font-size: 0.72rem;
+    margin-left: 20px;
+  }
+  .expand-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--border);
+    cursor: pointer;
+  }
+  .event-toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    cursor: pointer;
+  }
+  .master-toggle {
+    font-weight: 600;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px dashed var(--border);
+  }
+  .event-note {
+    color: var(--muted);
+    font-size: 0.72rem;
+    margin-top: 6px;
+  }
+  .panel h2, .panel > summary {
+    font-size: 0.9rem;
+    margin: 0 0 8px;
+    cursor: pointer;
+  }
+  .panel > summary { list-style: revert; }
   .panel-actions { display: flex; gap: 6px; margin-bottom: 8px; }
   .panel-actions button {
     flex: 1;
@@ -160,7 +253,7 @@
     display: inline-block; flex-shrink: 0;
     border: 1px solid rgba(0,0,0,0.25);
   }
-  .scroll-area { overflow-y: auto; flex: 1; }
+  .scroll-area { overflow-y: auto; flex: 1; min-height: 0; }
   footer {
     padding: 10px 20px 20px;
     color: var(--muted);
@@ -168,7 +261,8 @@
   }
   @media (max-width: 860px) {
     .layout { flex-direction: column; }
-    .panel { width: 100%; max-height: 300px; }
+    .side-col { width: 100%; }
+    .panel-body { max-height: 260px; }
   }
 </style>
 </head>
@@ -206,15 +300,62 @@
 
 <div class="layout">
   <div class="chart-wrap">
-    <div id="chart" class="chart"></div>
-  </div>
-  <div class="panel">
-    <h2>選擇天數</h2>
-    <div class="panel-actions">
-      <button id="selectAll">全選</button>
-      <button id="selectNone">全不選</button>
+    <div id="chartBox" class="chart-box">
+      <div id="chart" class="chart"></div>
+      <div id="resizeHandle" class="resize-handle" title="拖曳調整圖表長寬比"></div>
     </div>
-    <div class="scroll-area" id="dateList"></div>
+  </div>
+  <div class="side-col">
+    <details class="panel" open>
+      <summary>選擇天數</summary>
+      <div class="panel-body">
+        <div class="panel-actions">
+          <button id="selectAll">全選</button>
+          <button id="selectNone">全不選</button>
+        </div>
+        <div class="scroll-area" id="dateList"></div>
+      </div>
+    </details>
+    <details class="panel" id="typhoonPanel">
+      <summary>颱風警報日（CWA）</summary>
+      <div class="panel-body">
+        <div class="scroll-area" id="typhoonList"></div>
+        <label class="expand-toggle">
+          <input type="checkbox" id="typhoonExpand">
+          警報期間前後各加一天
+        </label>
+      </div>
+    </details>
+    <details class="panel" id="eventPanel">
+      <summary>AGU 遠震事件標籤</summary>
+      <div class="panel-body">
+        <label class="event-toggle-row master-toggle">
+          <input type="checkbox" id="eventLabelsMaster" checked>
+          在圖上顯示地點/規模文字（星星一律顯示）
+        </label>
+        <div class="panel-actions">
+          <button id="eventSelectAll">全選</button>
+          <button id="eventSelectNone">全不選</button>
+        </div>
+        <div class="scroll-area" id="eventList"></div>
+        <div class="event-note">依 P 波抵達 MiDAS 時刻對應到小時格點；同一小時多筆事件會合併成一個標籤</div>
+      </div>
+    </details>
+    <details class="panel" id="localEventPanel">
+      <summary>其他地震標籤</summary>
+      <div class="panel-body">
+        <label class="event-toggle-row master-toggle">
+          <input type="checkbox" id="localEventLabelsMaster" checked>
+          在圖上顯示地點/規模文字（星星一律顯示）
+        </label>
+        <div class="panel-actions">
+          <button id="localEventSelectAll">全選</button>
+          <button id="localEventSelectNone">全不選</button>
+        </div>
+        <div class="scroll-area" id="localEventList"></div>
+        <div class="event-note">CWA 即時列表 + 已發布報告頁面嵌入資料為主，缺漏處用 USGS 目錄補（詳見原始碼註解）</div>
+      </div>
+    </details>
   </div>
 </div>
 
@@ -222,6 +363,9 @@
   資料來源：depth_rms_tdms.py（bottom reference RMS）+ zone_rms_daily.py（DZ/FZ RMS），
   6-8 月的 25 天校正 bug 已修復（見 bottom_rms_baseline_investigation.md 第 8 節）。
   X 軸、DZ/FZ 的 Y 軸可切換 log/linear（右上角）；FZ/DZ ratio 的 Y 軸固定 linear。
+  颱風警報日：中央氣象署颱風資料庫（rdc28.cwa.gov.tw/TDB，2026 年查詢）。
+  遠震事件標籤（橘色星形）：event_origin_arrival_summary.csv（15 個 AGU 2026 選定事件，P 波抵達 MiDAS 時刻）。
+  其他地震標籤（藍色星形）：CWA 近期地震列表 + 已發布 daily report 頁面嵌入資料為主，2 筆缺漏（無 CWA 記錄）以 USGS 目錄補。
 </footer>
 
 <script>
@@ -235,9 +379,93 @@ let DATA = null;
 let currentTab = "dz";
 let currentScale = "log";
 const visibleDates = new Set();
+const visibleEventIds = new Set();
+const visibleLocalEventIds = new Set();
+
+// 2026 年對台發布警報的颱風，來源：中央氣象署颱風資料庫（rdc28.cwa.gov.tw/TDB）
+// 有發警報颱風列表 API（get_warning_typhoon, year=2026），警報期間(TST) = sea_start/end_datetime。
+// dates = 警報期間涵蓋的（台灣本地）日曆日；datesExpanded = 前後各加一天。
+const TYPHOONS = [
+  { id: "202609", name: "巴威 BAVI", start: "2026-07-09 14:30", end: "2026-07-12 08:30",
+    dates: ["20260709","20260710","20260711","20260712"],
+    datesExpanded: ["20260708","20260709","20260710","20260711","20260712","20260713"] },
+  { id: "202612", name: "紅霞 NOUL", start: "2026-07-23 23:30", end: "2026-07-25 08:30",
+    dates: ["20260723","20260724","20260725"],
+    datesExpanded: ["20260722","20260723","20260724","20260725","20260726"] },
+  { id: "202613", name: "白海豚 DOLPHIN", start: "2026-08-07 14:30", end: "2026-08-09 23:30",
+    dates: ["20260807","20260808","20260809"],
+    datesExpanded: ["20260806","20260807","20260808","20260809","20260810"] },
+  { id: "202618", name: "沙德爾 SAUDEL", start: "2026-08-27 08:30", end: "2026-08-28 14:30",
+    dates: ["20260827","20260828"],
+    datesExpanded: ["20260826","20260827","20260828","20260829"] },
+];
+
+// AGU 2026 選定的 15 個遠震事件，來源：event_origin_arrival_summary.csv
+// hour = P 波（iasp91）抵達 MiDAS 當下的 UTC 小時，對應 data.json 的 (date, hour) 格點。
+const EVENTS = [
+  { date: "20260607", hour: 23, place: "Philippines", mag: 7.8 },
+  { date: "20260608", hour: 0,  place: "Philippines", mag: 6.5 },
+  { date: "20260616", hour: 3,  place: "Indonesia", mag: 6.7 },
+  { date: "20260617", hour: 19, place: "Mid-Atlantic Ridge", mag: 6.6 },
+  { date: "20260619", hour: 7,  place: "Russia", mag: 6.6 },
+  { date: "20260624", hour: 22, place: "Venezuela", mag: 7.2 },
+  { date: "20260624", hour: 22, place: "Venezuela", mag: 7.5 },
+  { date: "20260624", hour: 22, place: "Japan", mag: 6.9 },
+  { date: "20260626", hour: 11, place: "Philippines", mag: 6.5 },
+  { date: "20260717", hour: 15, place: "Mexico", mag: 7.3 },
+  { date: "20260728", hour: 7,  place: "Japan", mag: 6.8 },
+  { date: "20260810", hour: 12, place: "Colombia", mag: 7.4 },
+  { date: "20260814", hour: 22, place: "Indonesia", mag: 7.8 },
+  { date: "20260815", hour: 11, place: "Indonesia", mag: 6.9 },
+  { date: "20260820", hour: 18, place: "Peru", mag: 6.7 },
+];
+
+// Local/regional earthquakes explaining hourly points with ref above the Colombia M7.4
+// point (1.381e-9). CWA's own live earthquake QUERY page (scweb.cwa.gov.tw) blocks
+// scripted POST requests at the WAF level ("Request Rejected"), but two other CWA
+// sources worked:
+//  - www.cwa.gov.tw/V8/C/E/MOD/EQ_ROW.html: CWA's public "recent felt earthquakes"
+//    fragment (same one daily_blog.py's fetch_cwa_quakes() already scrapes in
+//    production) -- only rolls back ~2 weeks, so as of 2026-09-26 it only reached
+//    2026-09-13.
+//  - Already-published daily-report pages (midas-daily-2026q3 on the Pi) embed the
+//    CWA quakes that WERE live-scraped at report-generation time, as a purple-star
+//    Plotly trace + customdata; pulled 2026-07-30 and 2026-08-22 from there.
+// 2026-06-07 and 2026-07-26 have no CWA record in either source (checked, genuinely
+// not just blocked) -> kept the USGS estimate. 2026-07-03's M6.1 is offshore Japan
+// (Hirara), outside CWA's domestic scope -> USGS only.
+// place = 震央所在（或最近參考）縣市，取自 CWA 地點描述去掉方位/距離/「外海」等字樣；
+// url = CWA 地震報告詳細頁（只有真的來自 CWA 資料的 3 筆才有連結，0607/0726 是 USGS 估的，沒有）。
+const LOCAL_EVENTS = [
+  { date: "20260607", hour: 17, place: "花蓮", mag: 3.9 },
+  { date: "20260703", hour: 4,  place: "Japan", mag: 6.1 },
+  { date: "20260726", hour: 12, place: "新北", mag: 4.7 },
+  { date: "20260730", hour: 16, place: "臺東", mag: 4.7, url: "https://www.cwa.gov.tw/V8/C/E/EQ/EQ115053-0731-005836.html" },
+  { date: "20260822", hour: 3,  place: "宜蘭", mag: 5.1, url: "https://www.cwa.gov.tw/V8/C/E/EQ/EQ115056-0822-114015.html" },
+  { date: "20260913", hour: 19, place: "花蓮", mag: 4.7, url: "https://www.cwa.gov.tw/V8/C/E/EQ/EQ115062-0914-032135.html" },
+];
 
 function fmtDate(d) {
   return `${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}`;
+}
+
+// The underlying (date, hour) in data.json is UTC (see plot_hourly_scatter_combined.py,
+// which adds +8 only when labeling its colorbar). This converts to local Taiwan time
+// (UTC+8) for display only -- day/typhoon bucketing elsewhere still uses the raw UTC date.
+function toLocalDateHour(dateStr, hourUtc) {
+  const localHour = (hourUtc + 8) % 24;
+  const dayShift = Math.floor((hourUtc + 8) / 24);
+  if (dayShift === 0) return { date: dateStr, hour: localHour };
+  const y = +dateStr.slice(0, 4), m = +dateStr.slice(4, 6), d = +dateStr.slice(6, 8);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + dayShift);
+  const localDate = `${dt.getUTCFullYear()}${String(dt.getUTCMonth() + 1).padStart(2, "0")}${String(dt.getUTCDate()).padStart(2, "0")}`;
+  return { date: localDate, hour: localHour };
+}
+
+function fmtLocal(dateStr, hourUtc) {
+  const loc = toLocalDateHour(dateStr, hourUtc);
+  return `${fmtDate(loc.date)} h${String(loc.hour).padStart(2, "0")}`;
 }
 
 function dateColor(idx, n) {
@@ -301,15 +529,145 @@ function buildDateList() {
 // (export_interactive_scatter_data.py writes dates in order, and within each date
 // hours are pre-sorted), so filtering it preserves chronological order -- that's
 // what the Play animation walks through.
-function buildVisiblePoints() {
+function buildVisiblePoints(dateSet) {
+  dateSet = dateSet || visibleDates;
   const cfg = YCOLS[currentTab];
-  const pts = DATA.records.filter(r => visibleDates.has(r.date));
+  const pts = DATA.records.filter(r => dateSet.has(r.date));
   return {
     x: pts.map(r => r.ref),
     y: pts.map(r => r[cfg.key]),
     color: pts.map(r => dateColor(DATA.dates.indexOf(r.date), DATA.dates.length)),
-    customdata: pts.map(r => `${fmtDate(r.date)} h${String(r.hour).padStart(2,"0")}`),
+    customdata: pts.map(r => `${fmtLocal(r.date, r.hour)} (UTC+8)`),
   };
+}
+
+function buildTyphoonList() {
+  const container = document.getElementById("typhoonList");
+  TYPHOONS.forEach(t => {
+    const row = document.createElement("div");
+    row.className = "typhoon-row";
+    const label = document.createElement("label");
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.dataset.id = t.id;
+    cb.addEventListener("change", render);
+    label.appendChild(cb);
+    label.appendChild(document.createTextNode(t.name));
+    row.appendChild(label);
+    const range = document.createElement("div");
+    range.className = "typhoon-range";
+    range.textContent = `${t.start} ~ ${t.end}`;
+    row.appendChild(range);
+    container.appendChild(row);
+  });
+  document.getElementById("typhoonExpand").addEventListener("change", render);
+}
+
+function getActiveTyphoonDates() {
+  const expand = document.getElementById("typhoonExpand").checked;
+  const result = new Set();
+  document.querySelectorAll("#typhoonList input[type=checkbox]:checked").forEach(cb => {
+    const t = TYPHOONS.find(x => x.id === cb.dataset.id);
+    if (!t) return;
+    (expand ? t.datesExpanded : t.dates).forEach(d => result.add(d));
+  });
+  return result;
+}
+
+function stormTraceFrom(pts) {
+  return {
+    x: pts.x, y: pts.y, customdata: pts.customdata,
+    hovertemplate: "%{customdata}（颱風警報日）<br>ref=%{x:.3e}<br>y=%{y:.3e}<extra></extra>",
+    mode: "markers",
+    type: "scatter",
+    marker: { color: "#dc2626", size: 9, line: { width: 0.8, color: "#7f1d1d" } },
+    showlegend: false,
+  };
+}
+
+function buildEventChecklist(containerId, events, visibleIds) {
+  const container = document.getElementById(containerId);
+  events.forEach((e, i) => {
+    e.id = i;
+    visibleIds.add(i);
+    const row = document.createElement("label");
+    row.className = "date-row";
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.checked = true;
+    cb.dataset.id = i;
+    cb.addEventListener("change", () => {
+      if (cb.checked) visibleIds.add(i); else visibleIds.delete(i);
+      render();
+    });
+    row.appendChild(cb);
+    row.appendChild(document.createTextNode(
+      `${fmtLocal(e.date, e.hour)} (UTC+8) · ${e.place} M${e.mag}`
+    ));
+    container.appendChild(row);
+  });
+}
+
+function wireSelectButtons(allBtnId, noneBtnId, listId, visibleIds) {
+  document.getElementById(allBtnId).addEventListener("click", () => {
+    document.querySelectorAll(`#${listId} input[type=checkbox]`).forEach(cb => { cb.checked = true; visibleIds.add(+cb.dataset.id); });
+    render();
+  });
+  document.getElementById(noneBtnId).addEventListener("click", () => {
+    document.querySelectorAll(`#${listId} input[type=checkbox]`).forEach(cb => { cb.checked = false; visibleIds.delete(+cb.dataset.id); });
+    render();
+  });
+}
+
+// One overlay point per (date, hour) that has >=1 selected event from the given list;
+// several events landing in the same hour bin (e.g. the 2026-06-24 Venezuela pair +
+// Noda, Japan) are merged into one marker with a multi-line label.
+function buildLabeledOverlay(cfg, events, visibleIds, markerColor, markerBorder) {
+  const groups = {};
+  events.forEach(e => {
+    if (!visibleDates.has(e.date)) return;
+    if (!visibleIds.has(e.id)) return;
+    const key = `${e.date}-${e.hour}`;
+    (groups[key] = groups[key] || []).push(e);
+  });
+  const xs = [], ys = [], hovers = [], urls = [], annotations = [];
+  Object.values(groups).forEach(evs => {
+    const rec = DATA.records.find(r => r.date === evs[0].date && r.hour === evs[0].hour);
+    if (!rec) return;
+    const y = rec[cfg.key];
+    xs.push(rec.ref);
+    ys.push(y);
+    const url = (evs.find(e => e.url) || {}).url || null;
+    urls.push(url);
+    const text = evs.map(e => `${e.place} M${e.mag}`).join("<br>") + (url ? "<br>（點擊開啟 CWA 詳細頁）" : "");
+    hovers.push(text);
+    annotations.push({
+      x: rec.ref, y: y, xref: "x", yref: "y",
+      text: evs.map(e => `${e.place} M${e.mag}`).join("<br>"),
+      showarrow: true, arrowhead: 2, arrowsize: 0.8, ax: 0, ay: -32,
+      font: { size: 9, color: "#111827" },
+      bgcolor: "rgba(255,255,255,0.88)", bordercolor: "#9ca3af", borderwidth: 1, borderpad: 2,
+    });
+  });
+  const trace = {
+    x: xs, y: ys, text: hovers, customdata: urls, mode: "markers", type: "scatter",
+    hovertemplate: "%{text}<extra></extra>",
+    marker: { symbol: "star", size: 13, color: markerColor, line: { width: 1, color: markerBorder } },
+    showlegend: false,
+  };
+  return { trace, annotations };
+}
+
+// Clicking a starred point whose customdata is a CWA detail-page URL opens it
+// (mirrors the same click-to-open pattern already used in daily_blog.py's
+// _depth_overlay_plotly() embedded pages). Bound once; Plotly.react() re-renders
+// the same <div> so the binding survives across tab/scale/filter changes.
+function handleChartClick(data) {
+  const pt = data.points && data.points[0];
+  const url = pt && pt.customdata;
+  if (typeof url === "string" && url.indexOf("http") === 0) {
+    window.open(url, "_blank");
+  }
 }
 
 function buildColorbarTrace() {
@@ -365,9 +723,29 @@ function mainTraceFrom(pts) {
 function render() {
   stopAnimation();
   const cfg = YCOLS[currentTab];
-  const pts = buildVisiblePoints();
-  Plotly.react("chart", [mainTraceFrom(pts), buildColorbarTrace()], buildLayout(cfg),
-    { responsive: true, displaylogo: false });
+  const typhoonDates = getActiveTyphoonDates();
+  const normalDates = new Set([...visibleDates].filter(d => !typhoonDates.has(d)));
+  const stormDates = new Set([...visibleDates].filter(d => typhoonDates.has(d)));
+
+  const traces = [mainTraceFrom(buildVisiblePoints(normalDates))];
+  if (stormDates.size) traces.push(stormTraceFrom(buildVisiblePoints(stormDates)));
+
+  const layout = buildLayout(cfg);
+  // Master toggles only hide the place/magnitude text annotations; the star
+  // markers themselves stay on (still driven by each event's own checkbox).
+  const showEventLabels = document.getElementById("eventLabelsMaster").checked;
+  const showLocalLabels = document.getElementById("localEventLabelsMaster").checked;
+  const teleseismic = buildLabeledOverlay(cfg, EVENTS, visibleEventIds, "#f59e0b", "#78350f");
+  const local = buildLabeledOverlay(cfg, LOCAL_EVENTS, visibleLocalEventIds, "#0ea5e9", "#0c4a6e");
+  if (teleseismic.trace.x.length) traces.push(teleseismic.trace);
+  if (local.trace.x.length) traces.push(local.trace);
+  layout.annotations = [
+    ...(showEventLabels ? teleseismic.annotations : []),
+    ...(showLocalLabels ? local.annotations : []),
+  ];
+  traces.push(buildColorbarTrace());
+
+  Plotly.react("chart", traces, layout, { responsive: true, displaylogo: false });
 }
 
 // ---- Play animation: reveal points one hour at a time, in chronological order ----
@@ -454,14 +832,55 @@ function setupScaleToggle() {
   });
 }
 
+// Custom drag-to-resize handle for #chartBox (native CSS `resize` is unreliable
+// across browsers -- barely visible or unsupported on non-textarea elements in
+// some Safari versions). Plotly's own `responsive: true` mainly reacts to window
+// resizes, not a manual drag-resize of its own container, so a ResizeObserver on
+// #chart forces a redraw whenever the box's actual rendered size changes.
+const chartEl = document.getElementById("chart");
+if (window.ResizeObserver) {
+  new ResizeObserver(() => Plotly.Plots.resize(chartEl)).observe(chartEl);
+}
+
+function setupResizeHandle() {
+  const box = document.getElementById("chartBox");
+  const handle = document.getElementById("resizeHandle");
+  let startX, startY, startW, startH, dragging = false;
+
+  handle.addEventListener("mousedown", (e) => {
+    dragging = true;
+    startX = e.clientX;
+    startY = e.clientY;
+    startW = box.offsetWidth;
+    startH = box.offsetHeight;
+    document.body.style.userSelect = "none";
+    e.preventDefault();
+  });
+  window.addEventListener("mousemove", (e) => {
+    if (!dragging) return;
+    box.style.width = Math.max(320, startW + (e.clientX - startX)) + "px";
+    box.style.height = Math.max(320, startH + (e.clientY - startY)) + "px";
+  });
+  window.addEventListener("mouseup", () => {
+    if (!dragging) return;
+    dragging = false;
+    document.body.style.userSelect = "";
+  });
+}
+setupResizeHandle();
+
 fetch("data.json").then(r => r.json()).then(data => {
   DATA = data;
   DATA.dates.forEach(d => visibleDates.add(d));
   buildDateList();
+  buildTyphoonList();
+  buildEventChecklist("eventList", EVENTS, visibleEventIds);
+  buildEventChecklist("localEventList", LOCAL_EVENTS, visibleLocalEventIds);
   setupTabs();
   setupScaleToggle();
   setupPlayControls();
   render();
+  document.getElementById("chart").on("plotly_click", handleChartClick);
 
   document.getElementById("selectAll").addEventListener("click", () => {
     document.querySelectorAll("#dateList input[type=checkbox]").forEach(cb => { cb.checked = true; visibleDates.add(cb.dataset.date); });
@@ -471,6 +890,10 @@ fetch("data.json").then(r => r.json()).then(data => {
     document.querySelectorAll("#dateList input[type=checkbox]").forEach(cb => { cb.checked = false; visibleDates.delete(cb.dataset.date); });
     render();
   });
+  wireSelectButtons("eventSelectAll", "eventSelectNone", "eventList", visibleEventIds);
+  wireSelectButtons("localEventSelectAll", "localEventSelectNone", "localEventList", visibleLocalEventIds);
+  document.getElementById("eventLabelsMaster").addEventListener("change", render);
+  document.getElementById("localEventLabelsMaster").addEventListener("change", render);
 });
 </script>
 
