@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<title>Hourly Zone RMS Scatter (interactive)</title>
+<title>Hourly Zone RMS Scatter (interactive) — 2024</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2/plotly.min.js"></script>
 <style>
@@ -167,34 +167,6 @@
     max-height: 380px;
     margin-top: 8px;
   }
-  .typhoon-row {
-    padding: 4px 2px;
-    border-radius: 4px;
-    font-size: 0.8rem;
-  }
-  .typhoon-row:hover { background: #eef2ff; }
-  .typhoon-row label {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    cursor: pointer;
-  }
-  .typhoon-row .typhoon-range {
-    color: var(--muted);
-    font-size: 0.72rem;
-    margin-left: 20px;
-  }
-  .expand-toggle {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.78rem;
-    color: var(--muted);
-    margin-top: 8px;
-    padding-top: 8px;
-    border-top: 1px dashed var(--border);
-    cursor: pointer;
-  }
   .event-toggle-row {
     display: flex;
     align-items: center;
@@ -275,8 +247,8 @@
 <body>
 
 <header>
-  <h1>Hole A Zone RMS vs. bottom reference RMS — hourly scatter</h1>
-  <div class="subtitle">2026-06-01 ~ 2026-09-20（112 個有效天數，共 2565 個小時點）· 顏色 = 日期（連續色階）</div>
+  <h1>Hole A Zone RMS vs. bottom reference RMS — hourly scatter (2024)</h1>
+  <div class="subtitle">2024-01-01 ~ 2024-06-30（182 個有效天數，共 4367 個小時點）· 顏色 = 日期（連續色階）</div>
 </header>
 
 <div class="tabs">
@@ -322,25 +294,15 @@
         <div class="scroll-area" id="dateList"></div>
       </div>
     </details>
-    <details class="panel" id="typhoonPanel">
-      <summary>颱風警報日（CWA）</summary>
+    <details class="panel" id="periodPanel">
+      <summary>地震前中後區段標記</summary>
       <div class="panel-body">
-        <div class="scroll-area" id="typhoonList"></div>
-        <label class="expand-toggle">
-          <input type="checkbox" id="typhoonExpand">
-          警報期間前後各加一天
-        </label>
-      </div>
-    </details>
-    <details class="panel" id="rainPanel">
-      <summary>大雨日（日累積雨量 ≥80mm）</summary>
-      <div class="panel-body">
-        <div class="scroll-area" id="rainList"></div>
-        <div class="event-note">花蓮測站（466990）逐日雨量，CWA opendata C-B0025-001；80mm/24hr 是 CWA「大雨」官方分級門檻。只有逐日總量，逐時雨量歷史資料在 CODiS 只回溯~1個月，無法涵蓋整個 6-9 月範圍（勾選後這天的點會用藍綠色圈起來）</div>
+        <div class="scroll-area" id="periodList"></div>
+        <div class="event-note">勾選後，該區段的點會統一換成該區段的顏色並疊到最上面（不影響「選擇天數」的顯示/隱藏）</div>
       </div>
     </details>
     <details class="panel" id="eventPanel">
-      <summary>AGU 遠震事件標籤</summary>
+      <summary>遠震事件標籤</summary>
       <div class="panel-body">
         <label class="event-toggle-row master-toggle">
           <input type="checkbox" id="eventLabelsMaster" checked>
@@ -351,34 +313,20 @@
           <button id="eventSelectNone">全不選</button>
         </div>
         <div class="scroll-area" id="eventList"></div>
-        <div class="event-note">依 P 波抵達 MiDAS 時刻對應到小時格點；同一小時多筆事件會合併成一個標籤</div>
-      </div>
-    </details>
-    <details class="panel" id="localEventPanel">
-      <summary>其他地震標籤</summary>
-      <div class="panel-body">
-        <label class="event-toggle-row master-toggle">
-          <input type="checkbox" id="localEventLabelsMaster" checked>
-          在圖上顯示地點/規模文字（星星一律顯示）
-        </label>
-        <div class="panel-actions">
-          <button id="localEventSelectAll">全選</button>
-          <button id="localEventSelectNone">全不選</button>
-        </div>
-        <div class="scroll-area" id="localEventList"></div>
-        <div class="event-note">CWA 即時列表 + 已發布報告頁面嵌入資料為主，缺漏處用 USGS 目錄補（詳見原始碼註解）</div>
+        <div class="event-note">依 P 波（iasp91 model）抵達 MiDAS 時刻對應到小時格點；2024-04-02 花蓮地震震央距離 Hole A 僅 ~0.2°，P 波抵達視同起震時刻</div>
       </div>
     </details>
   </div>
 </div>
 
 <footer>
-  資料來源：depth_rms_tdms.py（bottom reference RMS）+ zone_rms_daily.py（DZ/FZ RMS），
-  6-8 月的 25 天校正 bug 已修復（見 bottom_rms_baseline_investigation.md 第 8 節）。
+  資料來源：daily_report/backfill_2024/（bf2024_depth_rms_from_nc.py + bf2024_zone_rms_from_nc.py，
+  從 2024-01~06 的 100Hz .nc 封存重算），跟 2026 版用的即時 pipeline 是不同的一批腳本，
+  欄位格式相容（hour, ref_rms / hour, rms_damage, rms_fault）。
   X 軸、DZ/FZ 的 Y 軸可切換 log/linear（右上角）；FZ/DZ ratio 的 Y 軸固定 linear。
-  颱風警報日：中央氣象署颱風資料庫（rdc28.cwa.gov.tw/TDB，2026 年查詢）。
-  遠震事件標籤（橘色星形）：event_origin_arrival_summary.csv（15 個 AGU 2026 選定事件，P 波抵達 MiDAS 時刻）。
-  其他地震標籤（藍色星形）：CWA 近期地震列表 + 已發布 daily report 頁面嵌入資料為主，2 筆缺漏（無 CWA 記錄）以 USGS 目錄補。
+  遠震事件標籤（橘色星形）：USGS 全球地震目錄 M6.5+（2024-01-01~2024-06-30，共 13 個事件），
+  P 波抵達時刻用 obspy TauPyModel（iasp91）計算。這個版本刻意不做颱風警報日／其他地震／
+  大雨日標籤（跟 2026 版比對過差異很大，2024 沒有重新查證那些 CWA 資料）。
 </footer>
 
 <script>
@@ -393,87 +341,36 @@ let currentTab = "dz";
 let currentScale = "log";
 const visibleDates = new Set();
 const visibleEventIds = new Set();
-const visibleLocalEventIds = new Set();
 
-// 2026 年對台發布警報的颱風，來源：中央氣象署颱風資料庫（rdc28.cwa.gov.tw/TDB）
-// 有發警報颱風列表 API（get_warning_typhoon, year=2026），警報期間(TST) = sea_start/end_datetime。
-// dates = 警報期間涵蓋的（台灣本地）日曆日；datesExpanded = 前後各加一天。
-const TYPHOONS = [
-  { id: "202609", name: "巴威 BAVI", start: "2026-07-09 14:30", end: "2026-07-12 08:30",
-    dates: ["20260709","20260710","20260711","20260712"],
-    datesExpanded: ["20260708","20260709","20260710","20260711","20260712","20260713"] },
-  { id: "202612", name: "紅霞 NOUL", start: "2026-07-23 23:30", end: "2026-07-25 08:30",
-    dates: ["20260723","20260724","20260725"],
-    datesExpanded: ["20260722","20260723","20260724","20260725","20260726"] },
-  { id: "202613", name: "白海豚 DOLPHIN", start: "2026-08-07 14:30", end: "2026-08-09 23:30",
-    dates: ["20260807","20260808","20260809"],
-    datesExpanded: ["20260806","20260807","20260808","20260809","20260810"] },
-  { id: "202618", name: "沙德爾 SAUDEL", start: "2026-08-27 08:30", end: "2026-08-28 14:30",
-    dates: ["20260827","20260828"],
-    datesExpanded: ["20260826","20260827","20260828","20260829"] },
-];
-
-// 花蓮測站（466990）逐日雨量 > CWA「大雨」門檻（24hr ≥ 80mm）的日子。來源：CWA opendata
-// C-B0025-001（自動雨量站-歷史逐日雨量），掃過整個 2026-06-01~2026-09-20，112 天裡只有
-// 這一天超過門檻。注意這是「日累積雨量」，不是「時雨量」——CODiS 的逐時歷史資料只回溯
-// ~1 個月（現在是 2026-09-26，只到 2026-08-27），涵蓋不到 6-9 月大部分日期，逐時雨量
-// 目前沒有辦法補齊全範圍，所以退而求其次用日總量當代替指標。
-const RAINY_DAYS = [
-  { date: "20260824", mm: 198.0 },
-];
-
-// AGU 2026 選定的 15 個遠震事件，來源：event_origin_arrival_summary.csv
-// hour = P 波（iasp91）抵達 MiDAS 當下的 UTC 小時，對應 data.json 的 (date, hour) 格點。
+// Global M6.5+ events (USGS), 2024-01-01~2024-06-30. hour = P-wave (iasp91, via
+// obspy TauPyModel) arrival at Hole A, UTC. The 2024-04-02 Hualien M7.4 is ~0.2°
+// (~22km) from Hole A -- no valid teleseismic phase at that distance in iasp91's
+// tables, so arrival is treated as == origin time (propagation delay is a few
+// seconds, negligible at hourly resolution); its ref value is ~2000x the typical
+// background (6.6e-7 vs ~3e-10), by far the largest point in this dataset.
 const EVENTS = [
-  { date: "20260607", hour: 23, place: "Philippines", mag: 7.8 },
-  { date: "20260608", hour: 0,  place: "Philippines", mag: 6.5 },
-  { date: "20260616", hour: 3,  place: "Indonesia", mag: 6.7 },
-  { date: "20260617", hour: 19, place: "Mid-Atlantic Ridge", mag: 6.6 },
-  { date: "20260619", hour: 7,  place: "Russia", mag: 6.6 },
-  { date: "20260624", hour: 22, place: "Venezuela", mag: 7.2 },
-  { date: "20260624", hour: 22, place: "Venezuela", mag: 7.5 },
-  { date: "20260624", hour: 22, place: "Japan", mag: 6.9 },
-  { date: "20260626", hour: 11, place: "Philippines", mag: 6.5 },
-  { date: "20260717", hour: 15, place: "Mexico", mag: 7.3 },
-  { date: "20260728", hour: 7,  place: "Japan", mag: 6.8 },
-  { date: "20260810", hour: 12, place: "Colombia", mag: 7.4 },
-  { date: "20260814", hour: 22, place: "Indonesia", mag: 7.8 },
-  { date: "20260815", hour: 11, place: "Indonesia", mag: 6.9 },
-  { date: "20260820", hour: 18, place: "Peru", mag: 6.7 },
-];
-
-// Local/regional earthquakes explaining hourly points with ref above the Colombia M7.4
-// point (1.381e-9). CWA's own live earthquake QUERY page (scweb.cwa.gov.tw) blocks
-// scripted POST requests at the WAF level ("Request Rejected"), but two other CWA
-// sources worked:
-//  - www.cwa.gov.tw/V8/C/E/MOD/EQ_ROW.html: CWA's public "recent felt earthquakes"
-//    fragment (same one daily_blog.py's fetch_cwa_quakes() already scrapes in
-//    production) -- only rolls back ~2 weeks, so as of 2026-09-26 it only reached
-//    2026-09-13.
-//  - Already-published daily-report pages (midas-daily-2026q3 on the Pi) embed the
-//    CWA quakes that WERE live-scraped at report-generation time, as a purple-star
-//    Plotly trace + customdata; pulled 2026-07-30 and 2026-08-22 from there.
-// 2026-06-07 and 2026-07-26 have no CWA record in either source (checked, genuinely
-// not just blocked) -> kept the USGS estimate. 2026-07-03's M6.1 is offshore Japan
-// (Hirara), outside CWA's domestic scope -> USGS only.
-// place = 震央所在（或最近參考）縣市，取自 CWA 地點描述去掉方位/距離/「外海」等字樣；
-// url = CWA 地震報告詳細頁（只有真的來自 CWA 資料的 3 筆才有連結，0607/0726 是 USGS 估的，沒有）。
-const LOCAL_EVENTS = [
-  { date: "20260607", hour: 17, place: "花蓮", mag: 3.9 },
-  { date: "20260703", hour: 4,  place: "Japan", mag: 6.1 },
-  { date: "20260726", hour: 12, place: "新北", mag: 4.7 },
-  { date: "20260730", hour: 16, place: "臺東", mag: 4.7, url: "https://www.cwa.gov.tw/V8/C/E/EQ/EQ115053-0731-005836.html" },
-  { date: "20260822", hour: 3,  place: "宜蘭", mag: 5.1, url: "https://www.cwa.gov.tw/V8/C/E/EQ/EQ115056-0822-114015.html" },
-  { date: "20260913", hour: 19, place: "花蓮", mag: 4.7, url: "https://www.cwa.gov.tw/V8/C/E/EQ/EQ115062-0914-032135.html" },
+  { date: "20240101", hour: 7,  place: "Japan (Noto Peninsula)", mag: 7.5 },
+  { date: "20240108", hour: 20, place: "Philippines", mag: 6.7 },
+  { date: "20240120", hour: 21, place: "Brazil", mag: 6.6 },
+  { date: "20240122", hour: 18, place: "China", mag: 7.0 },
+  { date: "20240128", hour: 9,  place: "Brazil", mag: 6.5 },
+  { date: "20240303", hour: 16, place: "Macquarie Island", mag: 6.8 },
+  { date: "20240323", hour: 20, place: "Papua New Guinea", mag: 6.9 },
+  { date: "20240402", hour: 23, place: "Taiwan (Hualien)", mag: 7.4 },
+  { date: "20240405", hour: 11, place: "Northern Mariana Islands", mag: 6.8 },
+  { date: "20240414", hour: 21, place: "Papua New Guinea", mag: 6.5 },
+  { date: "20240427", hour: 8,  place: "Japan (Bonin Islands)", mag: 6.5 },
+  { date: "20240526", hour: 20, place: "Tonga", mag: 6.6 },
+  { date: "20240628", hour: 5,  place: "Peru", mag: 7.2 },
 ];
 
 function fmtDate(d) {
   return `${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}`;
 }
 
-// The underlying (date, hour) in data.json is UTC (see plot_hourly_scatter_combined.py,
-// which adds +8 only when labeling its colorbar). This converts to local Taiwan time
-// (UTC+8) for display only -- day/typhoon bucketing elsewhere still uses the raw UTC date.
+// The underlying (date, hour) in data.json is UTC. This converts to local Taiwan
+// time (UTC+8) for display only -- date-panel bucketing elsewhere still uses the
+// raw UTC date.
 function toLocalDateHour(dateStr, hourUtc) {
   const localHour = (hourUtc + 8) % 24;
   const dayShift = Math.floor((hourUtc + 8) / 24);
@@ -516,7 +413,7 @@ function buildDateList() {
     const ym = d.slice(0,6);
     (byMonth[ym] = byMonth[ym] || []).push([d, i]);
   });
-  const monthNames = { "202606":"6月", "202607":"7月", "202608":"8月", "202609":"9月" };
+  const monthNames = { "202401":"1月", "202402":"2月", "202403":"3月", "202404":"4月", "202405":"5月", "202406":"6月" };
   Object.keys(byMonth).sort().forEach(ym => {
     const details = document.createElement("details");
     details.className = "month-group";
@@ -568,10 +465,53 @@ function buildDateList() {
   });
 }
 
-// One point per (date, hour); DATA.records is already in chronological order
-// (export_interactive_scatter_data.py writes dates in order, and within each date
-// hours are pre-sorted), so filtering it preserves chronological order -- that's
-// what the Play animation walks through.
+// Three checkable period groups, mainly to compare before/during/after the
+// 2024-04-02 Hualien M7.4 (the dominant event in this dataset). Checking one
+// recolors its points to a fixed, distinct color and draws them on top --
+// this is a highlight overlay, independent of "選擇天數"'s show/hide filter.
+const PERIODS = [
+  { id: "q1",        label: "1-3月",   color: "#2563eb", border: "#1e3a8a", from: "20240101", to: "20240331" },
+  { id: "apr",        label: "4月",     color: "#dc2626", border: "#7f1d1d", from: "20240401", to: "20240430" },
+  { id: "after_apr",  label: "4月以後", color: "#16a34a", border: "#14532d", from: "20240501", to: "29991231" },
+];
+
+function buildPeriodList() {
+  const container = document.getElementById("periodList");
+  PERIODS.forEach(p => {
+    const row = document.createElement("label");
+    row.className = "date-row";
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.dataset.id = p.id;
+    cb.addEventListener("change", render);
+    const sw = document.createElement("span");
+    sw.className = "swatch";
+    sw.style.background = p.color;
+    row.appendChild(cb);
+    row.appendChild(sw);
+    row.appendChild(document.createTextNode(p.label));
+    container.appendChild(row);
+  });
+}
+
+function getActivePeriods() {
+  return PERIODS.filter(p => document.querySelector(`#periodList input[data-id="${p.id}"]`).checked);
+}
+
+function periodTraceFrom(pts, period) {
+  return {
+    x: pts.x, y: pts.y, customdata: pts.customdata,
+    hovertemplate: `%{customdata}（${period.label}）<br>ref=%{x:.3e}<br>y=%{y:.3e}<extra></extra>`,
+    mode: "markers",
+    type: "scatter",
+    marker: { color: period.color, size: 9, line: { width: 0.8, color: period.border } },
+    showlegend: false,
+  };
+}
+
+// One point per (date, hour); records are already in chronological order (dates
+// written in order, hours pre-sorted within each date), so filtering preserves
+// chronological order -- that's what the Play animation walks through.
 function buildVisiblePoints(dateSet) {
   dateSet = dateSet || visibleDates;
   const cfg = YCOLS[currentTab];
@@ -581,83 +521,6 @@ function buildVisiblePoints(dateSet) {
     y: pts.map(r => r[cfg.key]),
     color: pts.map(r => dateColor(DATA.dates.indexOf(r.date), DATA.dates.length)),
     customdata: pts.map(r => `${fmtLocal(r.date, r.hour)} (UTC+8)`),
-  };
-}
-
-function buildTyphoonList() {
-  const container = document.getElementById("typhoonList");
-  TYPHOONS.forEach(t => {
-    const row = document.createElement("div");
-    row.className = "typhoon-row";
-    const label = document.createElement("label");
-    const cb = document.createElement("input");
-    cb.type = "checkbox";
-    cb.dataset.id = t.id;
-    cb.addEventListener("change", render);
-    label.appendChild(cb);
-    label.appendChild(document.createTextNode(t.name));
-    row.appendChild(label);
-    const range = document.createElement("div");
-    range.className = "typhoon-range";
-    range.textContent = `${t.start} ~ ${t.end}`;
-    row.appendChild(range);
-    container.appendChild(row);
-  });
-  document.getElementById("typhoonExpand").addEventListener("change", render);
-}
-
-function getActiveTyphoonDates() {
-  const expand = document.getElementById("typhoonExpand").checked;
-  const result = new Set();
-  document.querySelectorAll("#typhoonList input[type=checkbox]:checked").forEach(cb => {
-    const t = TYPHOONS.find(x => x.id === cb.dataset.id);
-    if (!t) return;
-    (expand ? t.datesExpanded : t.dates).forEach(d => result.add(d));
-  });
-  return result;
-}
-
-function stormTraceFrom(pts) {
-  return {
-    x: pts.x, y: pts.y, customdata: pts.customdata,
-    hovertemplate: "%{customdata}（颱風警報日）<br>ref=%{x:.3e}<br>y=%{y:.3e}<extra></extra>",
-    mode: "markers",
-    type: "scatter",
-    marker: { color: "#dc2626", size: 9, line: { width: 0.8, color: "#7f1d1d" } },
-    showlegend: false,
-  };
-}
-
-function buildRainList() {
-  const container = document.getElementById("rainList");
-  RAINY_DAYS.forEach(r => {
-    const row = document.createElement("label");
-    row.className = "date-row";
-    const cb = document.createElement("input");
-    cb.type = "checkbox";
-    cb.dataset.date = r.date;
-    cb.addEventListener("change", render);
-    row.appendChild(cb);
-    row.appendChild(document.createTextNode(`${fmtDate(r.date)}（${r.mm.toFixed(1)} mm）`));
-    container.appendChild(row);
-  });
-}
-
-function getActiveRainDates() {
-  const result = new Set();
-  document.querySelectorAll("#rainList input[type=checkbox]:checked").forEach(cb => result.add(cb.dataset.date));
-  return result;
-}
-
-// Hollow-ring overlay ("圈起來") on top of a heavy-rain day's own points, rather than
-// recoloring them -- keeps the date-color coding visible underneath the ring.
-function rainRingTraceFrom(pts) {
-  return {
-    x: pts.x, y: pts.y, hoverinfo: "skip",
-    mode: "markers",
-    type: "scatter",
-    marker: { symbol: "circle-open", size: 15, line: { width: 2.5, color: "#0891b2" } },
-    showlegend: false,
   };
 }
 
@@ -695,9 +558,8 @@ function wireSelectButtons(allBtnId, noneBtnId, listId, visibleIds) {
   });
 }
 
-// One overlay point per (date, hour) that has >=1 selected event from the given list;
-// several events landing in the same hour bin (e.g. the 2026-06-24 Venezuela pair +
-// Noda, Japan) are merged into one marker with a multi-line label.
+// One overlay point per (date, hour) that has >=1 selected event; several events
+// landing in the same hour bin are merged into one marker with a multi-line label.
 function buildLabeledOverlay(cfg, events, visibleIds, markerColor, markerBorder) {
   const groups = {};
   events.forEach(e => {
@@ -706,44 +568,29 @@ function buildLabeledOverlay(cfg, events, visibleIds, markerColor, markerBorder)
     const key = `${e.date}-${e.hour}`;
     (groups[key] = groups[key] || []).push(e);
   });
-  const xs = [], ys = [], hovers = [], urls = [], annotations = [];
+  const xs = [], ys = [], hovers = [], annotations = [];
   Object.values(groups).forEach(evs => {
     const rec = DATA.records.find(r => r.date === evs[0].date && r.hour === evs[0].hour);
     if (!rec) return;
     const y = rec[cfg.key];
     xs.push(rec.ref);
     ys.push(y);
-    const url = (evs.find(e => e.url) || {}).url || null;
-    urls.push(url);
-    const text = evs.map(e => `${e.place} M${e.mag}`).join("<br>") + (url ? "<br>（點擊開啟 CWA 詳細頁）" : "");
+    const text = evs.map(e => `${e.place} M${e.mag}`).join("<br>");
     hovers.push(text);
     annotations.push({
       x: rec.ref, y: y, xref: "x", yref: "y",
-      text: evs.map(e => `${e.place} M${e.mag}`).join("<br>"),
-      showarrow: true, arrowhead: 2, arrowsize: 0.8, ax: 0, ay: -32,
+      text, showarrow: true, arrowhead: 2, arrowsize: 0.8, ax: 0, ay: -32,
       font: { size: 9, color: "#111827" },
       bgcolor: "rgba(255,255,255,0.88)", bordercolor: "#9ca3af", borderwidth: 1, borderpad: 2,
     });
   });
   const trace = {
-    x: xs, y: ys, text: hovers, customdata: urls, mode: "markers", type: "scatter",
+    x: xs, y: ys, text: hovers, mode: "markers", type: "scatter",
     hovertemplate: "%{text}<extra></extra>",
     marker: { symbol: "star", size: 13, color: markerColor, line: { width: 1, color: markerBorder } },
     showlegend: false,
   };
   return { trace, annotations };
-}
-
-// Clicking a starred point whose customdata is a CWA detail-page URL opens it
-// (mirrors the same click-to-open pattern already used in daily_blog.py's
-// _depth_overlay_plotly() embedded pages). Bound once; Plotly.react() re-renders
-// the same <div> so the binding survives across tab/scale/filter changes.
-function handleChartClick(data) {
-  const pt = data.points && data.points[0];
-  const url = pt && pt.customdata;
-  if (typeof url === "string" && url.indexOf("http") === 0) {
-    window.open(url, "_blank");
-  }
 }
 
 function buildColorbarTrace() {
@@ -799,29 +646,27 @@ function mainTraceFrom(pts) {
 function render() {
   stopAnimation();
   const cfg = YCOLS[currentTab];
-  const typhoonDates = getActiveTyphoonDates();
-  const normalDates = new Set([...visibleDates].filter(d => !typhoonDates.has(d)));
-  const stormDates = new Set([...visibleDates].filter(d => typhoonDates.has(d)));
+
+  const activePeriods = getActivePeriods();
+  const highlighted = new Set();
+  activePeriods.forEach(p => {
+    DATA.dates.forEach(d => { if (d >= p.from && d <= p.to) highlighted.add(d); });
+  });
+  const normalDates = new Set([...visibleDates].filter(d => !highlighted.has(d)));
 
   const traces = [mainTraceFrom(buildVisiblePoints(normalDates))];
-  if (stormDates.size) traces.push(stormTraceFrom(buildVisiblePoints(stormDates)));
-
-  const rainDates = new Set([...getActiveRainDates()].filter(d => visibleDates.has(d)));
-  if (rainDates.size) traces.push(rainRingTraceFrom(buildVisiblePoints(rainDates)));
+  activePeriods.forEach(p => {
+    const periodDates = new Set([...visibleDates].filter(d => d >= p.from && d <= p.to));
+    if (periodDates.size) traces.push(periodTraceFrom(buildVisiblePoints(periodDates), p));
+  });
 
   const layout = buildLayout(cfg);
-  // Master toggles only hide the place/magnitude text annotations; the star
+  // Master toggle only hides the place/magnitude text annotations; the star
   // markers themselves stay on (still driven by each event's own checkbox).
   const showEventLabels = document.getElementById("eventLabelsMaster").checked;
-  const showLocalLabels = document.getElementById("localEventLabelsMaster").checked;
   const teleseismic = buildLabeledOverlay(cfg, EVENTS, visibleEventIds, "#f59e0b", "#78350f");
-  const local = buildLabeledOverlay(cfg, LOCAL_EVENTS, visibleLocalEventIds, "#0ea5e9", "#0c4a6e");
   if (teleseismic.trace.x.length) traces.push(teleseismic.trace);
-  if (local.trace.x.length) traces.push(local.trace);
-  layout.annotations = [
-    ...(showEventLabels ? teleseismic.annotations : []),
-    ...(showLocalLabels ? local.annotations : []),
-  ];
+  layout.annotations = showEventLabels ? teleseismic.annotations : [];
   traces.push(buildColorbarTrace());
 
   Plotly.react("chart", traces, layout, { responsive: true, displaylogo: false });
@@ -952,15 +797,12 @@ fetch("data.json").then(r => r.json()).then(data => {
   DATA = data;
   DATA.dates.forEach(d => visibleDates.add(d));
   buildDateList();
-  buildTyphoonList();
-  buildRainList();
+  buildPeriodList();
   buildEventChecklist("eventList", EVENTS, visibleEventIds);
-  buildEventChecklist("localEventList", LOCAL_EVENTS, visibleLocalEventIds);
   setupTabs();
   setupScaleToggle();
   setupPlayControls();
   render();
-  document.getElementById("chart").on("plotly_click", handleChartClick);
 
   document.getElementById("selectAll").addEventListener("click", () => {
     // #dateList also contains the whole-month checkboxes (no data-date) alongside
@@ -979,9 +821,7 @@ fetch("data.json").then(r => r.json()).then(data => {
     render();
   });
   wireSelectButtons("eventSelectAll", "eventSelectNone", "eventList", visibleEventIds);
-  wireSelectButtons("localEventSelectAll", "localEventSelectNone", "localEventList", visibleLocalEventIds);
   document.getElementById("eventLabelsMaster").addEventListener("change", render);
-  document.getElementById("localEventLabelsMaster").addEventListener("change", render);
 });
 </script>
 
