@@ -15,6 +15,12 @@
     --accent: #2563eb;
   }
   * { box-sizing: border-box; }
+  input[type="checkbox"] {
+    width: 17px;
+    height: 17px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
     margin: 0;
@@ -144,6 +150,40 @@
     z-index: 5;
   }
   .resize-handle:hover { opacity: 1; }
+  .dist-readout {
+    margin-top: 8px;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--panel-bg);
+    font-size: 0.8rem;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .dist-hint { color: var(--muted); font-size: 0.75rem; }
+  .dist-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    font-size: 0.78rem;
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .dist-line { display: flex; align-items: center; gap: 8px; }
+  .dist-line .dist-swatch {
+    width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0;
+  }
+  .dist-line .dist-clear {
+    margin-left: auto;
+    font-size: 0.72rem;
+    color: var(--accent);
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0;
+  }
   .side-col {
     width: 260px;
     flex-shrink: 0;
@@ -282,6 +322,13 @@
       <div id="chart" class="chart"></div>
       <div id="resizeHandle" class="resize-handle" title="拖曳調整圖表長寬比"></div>
     </div>
+    <label class="dist-toggle">
+      <input type="checkbox" id="showStdDev">
+      在分布圖上顯示平均值 ± 3 個標準差、中位數（黑實線 = 平均、藍點線 = 中位數、紅虛線 = ±3σ；log 軸下用 log 值算，linear 軸用原始值算），並在下方顯示數值
+    </label>
+    <div class="dist-readout" id="distReadout">
+      <span class="dist-hint">在上方／右側的長條分布圖上用滑鼠框選（工具列的方框選取工具）一段範圍，這裡會顯示該範圍內的點數與百分比。</span>
+    </div>
   </div>
   <div class="side-col">
     <details class="panel" open>
@@ -358,6 +405,8 @@ let DATA = null;
 let currentTab = "dz";
 let currentScale = "log";
 const visibleDates = new Set();
+// Unchecked by default on first load (still selectable) -- per user request.
+const EXCLUDED_BY_DEFAULT = "20240314";
 const visibleEventIds = new Set();
 const visibleLocalEventIds = new Set();
 
@@ -519,7 +568,7 @@ function buildDateList() {
   Object.keys(byMonth).sort().forEach(ym => {
     const details = document.createElement("details");
     details.className = "month-group";
-    details.open = true;
+    details.open = false;
     const summary = document.createElement("summary");
 
     // Whole-month checkbox: checked when every day in this month is visible.
@@ -528,7 +577,7 @@ function buildDateList() {
     // the native behavior of clicking anywhere in <summary>).
     const monthCb = document.createElement("input");
     monthCb.type = "checkbox";
-    monthCb.checked = true;
+    monthCb.checked = byMonth[ym].every(([dd]) => visibleDates.has(dd));
     monthCb.className = "month-checkbox";
     monthCb.addEventListener("click", (e) => e.stopPropagation());
     monthCb.addEventListener("change", () => {
@@ -548,7 +597,7 @@ function buildDateList() {
       row.className = "date-row";
       const cb = document.createElement("input");
       cb.type = "checkbox";
-      cb.checked = true;
+      cb.checked = visibleDates.has(d);
       cb.dataset.date = d;
       cb.addEventListener("change", () => {
         if (cb.checked) visibleDates.add(d); else visibleDates.delete(d);
@@ -662,7 +711,13 @@ function wireSelectButtons(allBtnId, noneBtnId, listId, visibleIds) {
 
 // One overlay point per (date, hour) that has >=1 selected event; several events
 // landing in the same hour bin are merged into one marker with a multi-line label.
-function buildLabeledOverlay(cfg, events, visibleIds, markerColor, markerBorder) {
+// Text labels live directly on this trace (mode "markers+text"), not in
+// layout.annotations -- Plotly's data-coordinate annotations have a known
+// mispositioning bug on log-type axes (they race the axis's autorange
+// calculation and can all pile up in one corner); trace text uses the exact
+// same data->pixel transform as the markers themselves, computed after axes
+// are finalized, so it isn't subject to that timing issue.
+function buildLabeledOverlay(cfg, events, visibleIds, markerColor, markerBorder, showLabels) {
   const groups = {};
   events.forEach(e => {
     if (!visibleDates.has(e.date)) return;
@@ -670,7 +725,7 @@ function buildLabeledOverlay(cfg, events, visibleIds, markerColor, markerBorder)
     const key = `${e.date}-${e.hour}`;
     (groups[key] = groups[key] || []).push(e);
   });
-  const xs = [], ys = [], hovers = [], annotations = [];
+  const xs = [], ys = [], hovers = [], labels = [];
   Object.values(groups).forEach(evs => {
     const rec = DATA.records.find(r => r.date === evs[0].date && r.hour === evs[0].hour);
     if (!rec) return;
@@ -679,20 +734,206 @@ function buildLabeledOverlay(cfg, events, visibleIds, markerColor, markerBorder)
     ys.push(y);
     const text = evs.map(e => `${e.place} M${e.mag}`).join("<br>");
     hovers.push(text);
-    annotations.push({
-      x: rec.ref, y: y, xref: "x", yref: "y",
-      text, showarrow: true, arrowhead: 2, arrowsize: 0.8, ax: 0, ay: -32,
-      font: { size: 9, color: "#111827" },
-      bgcolor: "rgba(255,255,255,0.88)", bordercolor: "#9ca3af", borderwidth: 1, borderpad: 2,
-    });
+    labels.push(text);
   });
-  const trace = {
-    x: xs, y: ys, text: hovers, mode: "markers", type: "scatter",
-    hovertemplate: "%{text}<extra></extra>",
+  return {
+    x: xs, y: ys, hovertext: hovers, text: showLabels ? labels : [],
+    mode: showLabels ? "markers+text" : "markers",
+    type: "scatter",
+    textposition: "top center",
+    textfont: { size: 9, color: "#111827" },
+    hovertemplate: "%{hovertext}<extra></extra>",
     marker: { symbol: "star", size: 13, color: markerColor, line: { width: 1, color: markerBorder } },
     showlegend: false,
   };
-  return { trace, annotations };
+}
+
+// ---- Marginal distribution histograms (outside the X/Y axes) ----
+// Bin edges follow whichever scale (log/linear) that axis is currently in, so
+// the bins visually line up with the main scatter's own tick spacing. Bin
+// count is a fixed default (30) -- there's no principled "right" interval for
+// data spanning this many orders of magnitude, so this is a reasonable choice
+// rather than a derived one.
+const HIST_BINS = 30;
+
+function computeHistogram(values, scaleType) {
+  const vals = values.filter(v => Number.isFinite(v) && (scaleType !== "log" || v > 0));
+  if (!vals.length) return { edges: [], counts: [], centers: [] };
+  const lo = Math.min(...vals), hi = Math.max(...vals);
+  const edges = [];
+  if (scaleType === "log") {
+    const loLog = Math.log10(lo || 1e-300), hiLog = Math.log10(hi);
+    const span = hiLog - loLog || 1;
+    for (let i = 0; i <= HIST_BINS; i++) edges.push(Math.pow(10, loLog + (span * i) / HIST_BINS));
+  } else {
+    const span = (hi - lo) || 1;
+    for (let i = 0; i <= HIST_BINS; i++) edges.push(lo + (span * i) / HIST_BINS);
+  }
+  const counts = new Array(HIST_BINS).fill(0);
+  vals.forEach(v => {
+    let idx = HIST_BINS - 1;
+    for (let i = 0; i < HIST_BINS; i++) {
+      if (v >= edges[i] && v <= edges[i + 1]) { idx = i; break; }
+    }
+    counts[idx]++;
+  });
+  const centers = edges.slice(0, -1).map((e, i) =>
+    scaleType === "log" ? Math.sqrt(e * edges[i + 1]) : (e + edges[i + 1]) / 2
+  );
+  const widths = edges.slice(0, -1).map((e, i) => edges[i + 1] - e);
+  return { edges, counts, centers, widths };
+}
+
+function topHistTrace(xVals, scaleType) {
+  const h = computeHistogram(xVals, scaleType);
+  return {
+    x: h.centers, y: h.counts, width: h.widths,
+    type: "bar", marker: { color: "#94a3b8" },
+    xaxis: "x", yaxis: "y2",
+    hovertemplate: "ref ≈ %{x:.2e}<br>%{y} pts<extra></extra>",
+    showlegend: false, name: "__hist_top__",
+  };
+}
+
+function rightHistTrace(yVals, scaleType) {
+  const h = computeHistogram(yVals, scaleType);
+  return {
+    x: h.counts, y: h.centers,
+    type: "bar", orientation: "h", marker: { color: "#94a3b8" },
+    xaxis: "x2", yaxis: "y",
+    hovertemplate: "y ≈ %{y:.2e}<br>%{x} pts<extra></extra>",
+    showlegend: false, name: "__hist_right__",
+  };
+}
+
+// Mean/std computed in log10-space when the axis is log (raw space is
+// meaningless for a mean/std here -- it's dominated by the largest outliers
+// and mean-3*std can go negative for a strictly-positive quantity), converted
+// back to real units for display/plotting.
+function computeStats(values, scaleType) {
+  const vals = values.filter(v => Number.isFinite(v) && (scaleType !== "log" || v > 0));
+  if (!vals.length) return null;
+  const space = scaleType === "log" ? vals.map(v => Math.log10(v)) : vals;
+  const mean = space.reduce((a, b) => a + b, 0) / space.length;
+  const variance = space.reduce((a, b) => a + (b - mean) * (b - mean), 0) / space.length;
+  const std = Math.sqrt(variance);
+  const sorted = space.slice().sort((a, b) => a - b);
+  const mid = sorted.length / 2;
+  const median = sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[Math.floor(mid)];
+  const toReal = v => (scaleType === "log" ? Math.pow(10, v) : v);
+  return {
+    mean: toReal(mean), median: toReal(median),
+    lo3: toReal(mean - 3 * std), hi3: toReal(mean + 3 * std),
+  };
+}
+
+// Reference lines drawn only within the marginal histogram strips (not across
+// the main plot) -- "<axis> domain" confines y0/y1 (or x0/x1) to that axis's
+// own plot area regardless of the main plot's domain shrink for the marginals.
+function stdShapesForTop(stats) {
+  if (!stats) return [];
+  const mk = (x, color, dash) => ({
+    type: "line", xref: "x", yref: "y2 domain",
+    x0: x, x1: x, y0: 0, y1: 1,
+    line: { color, width: 1.4, dash },
+  });
+  return [
+    mk(stats.lo3, "#dc2626", "dash"),
+    mk(stats.mean, "#111827", "solid"),
+    mk(stats.median, "#2563eb", "dot"),
+    mk(stats.hi3, "#dc2626", "dash"),
+  ];
+}
+function stdShapesForRight(stats) {
+  if (!stats) return [];
+  const mk = (y, color, dash) => ({
+    type: "line", xref: "x2 domain", yref: "y",
+    x0: 0, x1: 1, y0: y, y1: y,
+    line: { color, width: 1.4, dash },
+  });
+  return [
+    mk(stats.lo3, "#dc2626", "dash"),
+    mk(stats.mean, "#111827", "solid"),
+    mk(stats.median, "#2563eb", "dot"),
+    mk(stats.hi3, "#dc2626", "dash"),
+  ];
+}
+
+// Raw (ref, y) of whatever's currently plotted in the main+period traces --
+// stashed on every render() so the selection handler can compute percentages
+// without redoing the date/period filtering.
+let _lastPlotted = { x: [], y: [] };
+let selectedXRange = null, selectedYRange = null;
+
+// Drag-select (toolbar box-select tool) on a marginal histogram fires this.
+// Plotly names eventData.range's keys after the axis id involved in the
+// selection -- the top histogram uses xaxis 'x' (shared with the main plot)
+// + yaxis 'y2' (its own count axis), so a box there always yields range.x;
+// the right histogram is the mirror image, always yielding range.y.
+function onDistSelect(eventData) {
+  if (!eventData || !eventData.points || !eventData.points.length) return;
+  const traceName = eventData.points[0].data.name;
+  if (traceName === "__hist_top__" && eventData.range && eventData.range.x) {
+    selectedXRange = eventData.range.x.slice().sort((a, b) => a - b);
+    updateDistReadout();
+  } else if (traceName === "__hist_right__" && eventData.range && eventData.range.y) {
+    selectedYRange = eventData.range.y.slice().sort((a, b) => a - b);
+    updateDistReadout();
+  }
+}
+
+function updateDistReadout() {
+  const el = document.getElementById("distReadout");
+  const total = _lastPlotted.x.length;
+  const lines = [];
+  if (document.getElementById("showStdDev").checked) {
+    const cfg = YCOLS[currentTab];
+    const xStats = computeStats(_lastPlotted.x, currentScale);
+    const yStats = computeStats(_lastPlotted.y, cfg.log ? currentScale : "linear");
+    if (xStats) {
+      lines.push(
+        `<div class="dist-line"><span class="dist-swatch" style="background:#111827"></span>` +
+        `X：平均 ${xStats.mean.toExponential(2)}　中位數 ${xStats.median.toExponential(2)}</div>`
+      );
+    }
+    if (yStats) {
+      lines.push(
+        `<div class="dist-line"><span class="dist-swatch" style="background:#111827"></span>` +
+        `Y：平均 ${yStats.mean.toExponential(2)}　中位數 ${yStats.median.toExponential(2)}</div>`
+      );
+    }
+  }
+  if (selectedXRange) {
+    const [lo, hi] = selectedXRange;
+    const n = _lastPlotted.x.filter(v => v >= lo && v <= hi).length;
+    const pct = total ? (100 * n / total).toFixed(1) : "0.0";
+    lines.push(
+      `<div class="dist-line"><span class="dist-swatch" style="background:#2563eb"></span>` +
+      `X 範圍 [${lo.toExponential(2)}, ${hi.toExponential(2)}]：${n} / ${total} 點（${pct}%）` +
+      `<button class="dist-clear" data-axis="x">清除</button></div>`
+    );
+  }
+  if (selectedYRange) {
+    const [lo, hi] = selectedYRange;
+    const n = _lastPlotted.y.filter(v => v >= lo && v <= hi).length;
+    const pct = total ? (100 * n / total).toFixed(1) : "0.0";
+    lines.push(
+      `<div class="dist-line"><span class="dist-swatch" style="background:#16a34a"></span>` +
+      `Y 範圍 [${lo.toExponential(2)}, ${hi.toExponential(2)}]：${n} / ${total} 點（${pct}%）` +
+      `<button class="dist-clear" data-axis="y">清除</button></div>`
+    );
+  }
+  if (!lines.length) {
+    el.innerHTML = '<span class="dist-hint">在上方／右側的長條分布圖上用滑鼠框選（工具列的方框選取工具）一段範圍，這裡會顯示該範圍內的點數與百分比。</span>';
+    return;
+  }
+  el.innerHTML = lines.join("");
+  el.querySelectorAll(".dist-clear").forEach(btn => {
+    btn.addEventListener("click", () => {
+      if (btn.dataset.axis === "x") selectedXRange = null; else selectedYRange = null;
+      updateDistReadout();
+    });
+  });
 }
 
 function buildColorbarTrace() {
@@ -720,17 +961,27 @@ function buildLayout(cfg) {
     xaxis: {
       title: "Bottom reference-segment RMS (strain rate, 1/s)",
       type: currentScale,
+      domain: [0, 0.76],
     },
     yaxis: {
       title: cfg.label,
       // FZ/DZ ratio is a bounded dimensionless quantity (~1.0-1.5) -- keep it linear
       // regardless of the toggle, same convention as the static plot_hourly_scatter_combined.py
       type: cfg.log ? currentScale : "linear",
+      domain: [0, 0.76],
     },
+    // Marginal distribution histograms live in these two strips outside the
+    // main axes -- xaxis2 shares the main plot's y-range (right strip, count
+    // on its own linear x), yaxis2 shares the main plot's x-range (top strip,
+    // count on its own linear y). Drag-select (the toolbar's box-select tool)
+    // on either strip reports back via plotly_selected -> onDistSelect().
+    xaxis2: { domain: [0.80, 1], title: "count", showgrid: false, zeroline: false },
+    yaxis2: { domain: [0.80, 1], title: "count", showgrid: false, zeroline: false },
     margin: { t: 50, r: 30, l: 70, b: 60 },
     hovermode: "closest",
     plot_bgcolor: "#fff",
     paper_bgcolor: "#fff",
+    showlegend: false,
   };
 }
 
@@ -756,28 +1007,40 @@ function render() {
   });
   const normalDates = new Set([...visibleDates].filter(d => !highlighted.has(d)));
 
-  const traces = [mainTraceFrom(buildVisiblePoints(normalDates))];
+  const normalPts = buildVisiblePoints(normalDates);
+  const traces = [mainTraceFrom(normalPts)];
+  const allX = normalPts.x.slice(), allY = normalPts.y.slice();
   activePeriods.forEach(p => {
     const periodDates = new Set([...visibleDates].filter(d => d >= p.from && d <= p.to));
-    if (periodDates.size) traces.push(periodTraceFrom(buildVisiblePoints(periodDates), p));
+    if (periodDates.size) {
+      const periodPts = buildVisiblePoints(periodDates);
+      traces.push(periodTraceFrom(periodPts, p));
+      allX.push(...periodPts.x);
+      allY.push(...periodPts.y);
+    }
   });
+  _lastPlotted = { x: allX, y: allY };
 
   const layout = buildLayout(cfg);
-  // Master toggles only hide the place/magnitude text annotations; the star
-  // markers themselves stay on (still driven by each event's own checkbox).
+  traces.push(topHistTrace(allX, currentScale));
+  traces.push(rightHistTrace(allY, cfg.log ? currentScale : "linear"));
+  if (document.getElementById("showStdDev").checked) {
+    const xStats = computeStats(allX, currentScale);
+    const yStats = computeStats(allY, cfg.log ? currentScale : "linear");
+    layout.shapes = [...stdShapesForTop(xStats), ...stdShapesForRight(yStats)];
+  }
+  // Master toggles only hide the place/magnitude text; the star markers
+  // themselves stay on (still driven by each event's own checkbox).
   const showEventLabels = document.getElementById("eventLabelsMaster").checked;
   const showLocalLabels = document.getElementById("localEventLabelsMaster").checked;
-  const teleseismic = buildLabeledOverlay(cfg, EVENTS, visibleEventIds, "#f59e0b", "#78350f");
-  const local = buildLabeledOverlay(cfg, LOCAL_EVENTS, visibleLocalEventIds, "#0ea5e9", "#0c4a6e");
-  if (teleseismic.trace.x.length) traces.push(teleseismic.trace);
-  if (local.trace.x.length) traces.push(local.trace);
-  layout.annotations = [
-    ...(showEventLabels ? teleseismic.annotations : []),
-    ...(showLocalLabels ? local.annotations : []),
-  ];
+  const teleseismic = buildLabeledOverlay(cfg, EVENTS, visibleEventIds, "#f59e0b", "#78350f", showEventLabels);
+  const local = buildLabeledOverlay(cfg, LOCAL_EVENTS, visibleLocalEventIds, "#0ea5e9", "#0c4a6e", showLocalLabels);
+  if (teleseismic.x.length) traces.push(teleseismic);
+  if (local.x.length) traces.push(local);
   traces.push(buildColorbarTrace());
 
   Plotly.react("chart", traces, layout, { responsive: true, displaylogo: false });
+  updateDistReadout();
 }
 
 // ---- Play animation: reveal points one hour at a time, in chronological order ----
@@ -848,6 +1111,7 @@ function setupTabs() {
       document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
       currentTab = btn.dataset.tab;
+      selectedYRange = null;   // Y's meaning (DZ/FZ/ratio) changes across tabs
       render();
     });
   });
@@ -903,7 +1167,7 @@ setupResizeHandle();
 
 fetch("data.json").then(r => r.json()).then(data => {
   DATA = data;
-  DATA.dates.forEach(d => visibleDates.add(d));
+  DATA.dates.forEach(d => { if (d !== EXCLUDED_BY_DEFAULT) visibleDates.add(d); });
   buildDateList();
   buildPeriodList();
   buildEventChecklist("eventList", EVENTS, visibleEventIds);
@@ -912,6 +1176,8 @@ fetch("data.json").then(r => r.json()).then(data => {
   setupScaleToggle();
   setupPlayControls();
   render();
+  document.getElementById("chart").on("plotly_selected", onDistSelect);
+  document.getElementById("showStdDev").addEventListener("change", render);
 
   document.getElementById("selectAll").addEventListener("click", () => {
     // #dateList also contains the whole-month checkboxes (no data-date) alongside

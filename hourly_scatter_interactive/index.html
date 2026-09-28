@@ -15,6 +15,12 @@
     --accent: #2563eb;
   }
   * { box-sizing: border-box; }
+  input[type="checkbox"] {
+    width: 17px;
+    height: 17px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
     margin: 0;
@@ -698,7 +704,13 @@ function wireSelectButtons(allBtnId, noneBtnId, listId, visibleIds) {
 // One overlay point per (date, hour) that has >=1 selected event from the given list;
 // several events landing in the same hour bin (e.g. the 2026-06-24 Venezuela pair +
 // Noda, Japan) are merged into one marker with a multi-line label.
-function buildLabeledOverlay(cfg, events, visibleIds, markerColor, markerBorder) {
+// Text labels live directly on this trace (mode "markers+text"), not in
+// layout.annotations -- Plotly's data-coordinate annotations have a known
+// mispositioning bug on log-type axes (they race the axis's autorange
+// calculation and can all pile up in one corner); trace text uses the exact
+// same data->pixel transform as the markers themselves, computed after axes
+// are finalized, so it isn't subject to that timing issue.
+function buildLabeledOverlay(cfg, events, visibleIds, markerColor, markerBorder, showLabels) {
   const groups = {};
   events.forEach(e => {
     if (!visibleDates.has(e.date)) return;
@@ -706,7 +718,7 @@ function buildLabeledOverlay(cfg, events, visibleIds, markerColor, markerBorder)
     const key = `${e.date}-${e.hour}`;
     (groups[key] = groups[key] || []).push(e);
   });
-  const xs = [], ys = [], hovers = [], urls = [], annotations = [];
+  const xs = [], ys = [], hovers = [], urls = [], labels = [];
   Object.values(groups).forEach(evs => {
     const rec = DATA.records.find(r => r.date === evs[0].date && r.hour === evs[0].hour);
     if (!rec) return;
@@ -715,23 +727,20 @@ function buildLabeledOverlay(cfg, events, visibleIds, markerColor, markerBorder)
     ys.push(y);
     const url = (evs.find(e => e.url) || {}).url || null;
     urls.push(url);
-    const text = evs.map(e => `${e.place} M${e.mag}`).join("<br>") + (url ? "<br>（點擊開啟 CWA 詳細頁）" : "");
-    hovers.push(text);
-    annotations.push({
-      x: rec.ref, y: y, xref: "x", yref: "y",
-      text: evs.map(e => `${e.place} M${e.mag}`).join("<br>"),
-      showarrow: true, arrowhead: 2, arrowsize: 0.8, ax: 0, ay: -32,
-      font: { size: 9, color: "#111827" },
-      bgcolor: "rgba(255,255,255,0.88)", bordercolor: "#9ca3af", borderwidth: 1, borderpad: 2,
-    });
+    const plain = evs.map(e => `${e.place} M${e.mag}`).join("<br>");
+    hovers.push(plain + (url ? "<br>（點擊開啟 CWA 詳細頁）" : ""));
+    labels.push(evs.map(e => `${e.place} M${e.mag}`).join("<br>"));
   });
-  const trace = {
-    x: xs, y: ys, text: hovers, customdata: urls, mode: "markers", type: "scatter",
-    hovertemplate: "%{text}<extra></extra>",
+  return {
+    x: xs, y: ys, text: showLabels ? labels : [], hovertext: hovers, customdata: urls,
+    mode: showLabels ? "markers+text" : "markers",
+    type: "scatter",
+    textposition: "top center",
+    textfont: { size: 9, color: "#111827" },
+    hovertemplate: "%{hovertext}<extra></extra>",
     marker: { symbol: "star", size: 13, color: markerColor, line: { width: 1, color: markerBorder } },
     showlegend: false,
   };
-  return { trace, annotations };
 }
 
 // Clicking a starred point whose customdata is a CWA detail-page URL opens it
@@ -810,18 +819,14 @@ function render() {
   if (rainDates.size) traces.push(rainRingTraceFrom(buildVisiblePoints(rainDates)));
 
   const layout = buildLayout(cfg);
-  // Master toggles only hide the place/magnitude text annotations; the star
-  // markers themselves stay on (still driven by each event's own checkbox).
+  // Master toggles only hide the place/magnitude text; the star markers
+  // themselves stay on (still driven by each event's own checkbox).
   const showEventLabels = document.getElementById("eventLabelsMaster").checked;
   const showLocalLabels = document.getElementById("localEventLabelsMaster").checked;
-  const teleseismic = buildLabeledOverlay(cfg, EVENTS, visibleEventIds, "#f59e0b", "#78350f");
-  const local = buildLabeledOverlay(cfg, LOCAL_EVENTS, visibleLocalEventIds, "#0ea5e9", "#0c4a6e");
-  if (teleseismic.trace.x.length) traces.push(teleseismic.trace);
-  if (local.trace.x.length) traces.push(local.trace);
-  layout.annotations = [
-    ...(showEventLabels ? teleseismic.annotations : []),
-    ...(showLocalLabels ? local.annotations : []),
-  ];
+  const teleseismic = buildLabeledOverlay(cfg, EVENTS, visibleEventIds, "#f59e0b", "#78350f", showEventLabels);
+  const local = buildLabeledOverlay(cfg, LOCAL_EVENTS, visibleLocalEventIds, "#0ea5e9", "#0c4a6e", showLocalLabels);
+  if (teleseismic.x.length) traces.push(teleseismic);
+  if (local.x.length) traces.push(local);
   traces.push(buildColorbarTrace());
 
   Plotly.react("chart", traces, layout, { responsive: true, displaylogo: false });
